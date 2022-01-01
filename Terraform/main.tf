@@ -119,3 +119,13 @@ resource "azurerm_subnet_network_security_group_association" "nsg-asso-workers" 
   subnet_id = azurerm_subnet.workers.id
   network_security_group_id = azurerm_network_security_group.nsg-workers.id
 }
+
+#Bastion
+module "bastion" {
+  source = "./Bastion"
+
+  resource_group_name = azurerm_resource_group.resogroup.name
+  vnet_name = azurerm_virtual_network.vnet.name
+  suffix = local.suffix
+  location = azurerm_resource_group.resogroup.location
+}

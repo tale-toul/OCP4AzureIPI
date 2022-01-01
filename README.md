@@ -1,4 +1,4 @@
-#Openshift 4 on Azure on existing VNet using IPI installer 
+# Openshift 4 on Azure on existing VNet using IPI installer 
 
 ## Introduction
 
@@ -81,7 +81,7 @@ Some of the resources created by terraform can be adjusted via the use of variab
 ```
 region_name: "France Central"
 ```
-####Login to Azure
+#### Login to Azure
 Before running terraform to create resources a user with enough permissions must be authenticated with Azure, there are several options to perform this authentication as explained in the [documentation](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/service_principal_client_certificate) for the Azure resource provider for terraform.  The simplest one is to use the Azure CLI to authenticate:
 
 * Install __az__ [client](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli). On [RHEL]((https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=dnf#install))
@@ -90,6 +90,7 @@ Before running terraform to create resources a user with enough permissions must
 ```  
 $ az login
 ```  
+Once successfully loged in, the file ~/.azure/azureProfile.json is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  This credentials are valid for the following days so no further authentication with Azure is required for a while.
 
 #### Deploy infrastructure with Terraform
 To create the infrastructure run the following commands.  Enter "yes" at the prompt:
@@ -103,5 +104,12 @@ Do you want to perform these actions?
   Only 'yes' will be accepted to approve.
 
   Enter a value: yes
+```  
+Resource creation will be completed successfully when a message like the following appears:
+```  
+Apply complete! Resources: 9 added, 0 changed, 0 destroyed.
+
+Outputs:
+...
 ```  
 
