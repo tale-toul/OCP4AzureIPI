@@ -123,6 +123,7 @@ resource "azurerm_subnet_network_security_group_association" "nsg-asso-workers" 
 #Bastion
 module "bastion" {
   source = "./Bastion"
+  count = var.create_bastion ? 1 : 0
 
   resource_group_name = azurerm_resource_group.resogroup.name
   vnet_name = azurerm_virtual_network.vnet.name

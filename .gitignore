@@ -2,3 +2,4 @@
 Terraform/.terraform*
 *.tfstate
 *.tfstate.backup
+ocp-install.pub
