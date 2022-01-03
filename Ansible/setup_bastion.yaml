@@ -1,0 +1,59 @@
+---
+- name: Local actions for localhost
+  hosts: 127.0.0.1
+  connection: local
+  become: no
+  tasks:
+    - name: Remove stale entries from known_hosts file in the ansible host
+      command: ssh-keygen -R {{ item }}
+      with_items: "{{ groups['all'] }}"
+    - name: Save terraform variables to a file
+      shell: terraform output |tr '=' ':' > ../Ansible/group_vars/all/terraform_outputs.var
+      args:
+        chdir: ../Terraform
+    - name: Load terraform output variables
+      include_vars:
+        file: group_vars/all/terraform_outputs.var
+    - name: Update inventory file
+      blockinfile:
+        path: inventory
+        block: "{{ bastion_public_ip }}"
+        insertafter: "[bastion]"
+    - name: Reload inventory
+      meta: refresh_inventory
+- name: Setup bastion host
+  hosts: bastion
+  gather_facts: no
+  tasks:
+    - name: Load terraform output variables
+      include_vars:
+        file: group_vars/all/terraform_outputs.var
+    - name: Install required packages
+      yum:
+        state: latest
+        name:
+          - tmux
+    - name: Copy the installer to bastion
+      copy:
+        src: ocp_files/openshift-install
+        dest: OCP4/
+        owner: azureuser
+        mode: '0755'
+    - name: Copy the oc command to bastion
+      copy:
+        src: ocp_files/oc
+        dest: OCP4/
+        owner: azureuser
+        mode: '0755'
+    - name: Create {{ cluster_name }} directory
+      file:
+        path: OCP4/{{ cluster_name }}
+        state: directory
+        owner: azureuser
+        mode: '0750'
+    - name: Render install-config jinja2 template
+      template:
+        src: install-config.j2
+        dest: OCP4/{{ cluster_name }}/install-config.yaml
+        mode: 0644
+...

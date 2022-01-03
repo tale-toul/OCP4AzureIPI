@@ -1,20 +1,37 @@
 # Openshift 4 on Azure on existing VNet using IPI installer 
 
+## Table of Contents
+* [Introduction](#introduction)
+* [Cluster deployment](#cluster-deployment)
+  * [Create the infrastructure with Terraform](#create-the-infrastructure-with-terraform)
+    * [Terraform installation](#terraform.installation)
+    * [Terraform initialization](#terraform-initialization)
+    * [Login to Azure](#login-to-azure)
+    * [Variables definition](#variables-definition)
+    * [SSH key](#ssh-key)
+    * [Deploy the infrastructure with Terraform](#deploy-the-infrastructure-with-terraform)
+* [Bastion infrastructure](#Bastion infrastructure)
+  * [Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)
+  * [Destroying the bastion infrastructure](#destroying-the-bastion-infrastructure)
+* [Set up the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
+* [OCP Cluster Deployment](#ocp-cluster-deployment)
+* [Cluster decommissioning instructions](#cluster-decommissioning-instructions)
+
 ## Introduction
 
-The instructions and code in this repository can be used to deploy an Openshift 4 cluster in Azure on a existing VNet using the IPI installer.  
+The instructions and code in this repository can be used as an example to deploy an Openshift 4 cluster using the IPI installer in Azure on an existing VNet.  The VNet and related Azure resources required to deploy the OCP cluster into are created using terraform. 
 The OCP cluster can be [public](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-vnet.html) or [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html)
 
 ## Cluster deployment
 
 The deployment process consists of the following points:
 
-* [Create the infrastructure components in Azure](#create-the-infrastructure-with-terraform).- The VNet and other components are created using terraform
-* [Set up installation environment].- 
-* [Run the Openshift installer]
+* [Create the infrastructure components in Azure](#create-the-infrastructure-with-terraform).- The VNet and other components are created using terraform.
+* [Set up installation environment](#set-up-the-bastion-host-to-install-openshift).- The bastion host is prepared to lauch the openshift installer from it.
+* [Run the Openshift installer](#ocp-cluster-deployment)
 
 ### Create the infrastructure with Terraform
-Terraform is used to create the network infrastructure resources to deploy the Openshift cluster into.  The [terraform Azure provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs) is used.  
+Terraform is used to create in Azure the network infrastructure resources required to deploy the Openshift 4 cluster into.  The [terraform Azure provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs) is used.  
 
 #### Terraform installation
 
@@ -76,7 +93,7 @@ Check for any updates and initialize terraform plugins and modules:
 ```
 
 #### Login to Azure
-Before running terraform to create resources a user with enough permissions must be authenticated with Azure, there are several options to perform this authentication as explained in the [documentation](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/service_principal_client_certificate) for the Azure resource provider for terraform.  The simplest one is to use the Azure CLI to authenticate:
+Before running terraform to create resources a user with enough permissions must be authenticated with Azure, there are several options to perform this authentication as explained in the terraform [documentation](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/service_principal_client_certificate) for the Azure resource provider.  The simplest authentication method uses the Azure CLI:
 
 * Install __az__ [client](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli). On [RHEL]((https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=dnf#install))
 
@@ -84,20 +101,20 @@ Before running terraform to create resources a user with enough permissions must
 ```  
 $ az login
 ```  
-Once successfully loged in, the file ~/.azure/azureProfile.json is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  This credentials are valid for the following days so no further authentication with Azure is required for a while.
+Once successfully loged in, the file __~/.azure/azureProfile.json__ is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  This credentials are valid for the following days so no further authentication with Azure is required for a while.
 
 #### Variables definition
 Some of the resources created by terraform can be adjusted via the use of variables defined in the file Terrafomr/input-vars.tf:
-* **region_name**.- Contains the name of the Azure region where the resources, and the Openshift cluster, will be created.
+* **region_name**.- Contains the short name of the Azure region where the resources, and the Openshift cluster, will be created. The short name of the regions can be obtained from the __Name__ column in the output of the command `az account list-locations -o table`
 ```
-region_name: "France Central"
+region_name: "francecentral"
 ```
 * **create_bastion**.- Boolean used to determine if the bastion infrastructure will be created or not (defaults to true, the bastion will be created).
 ```
 create_bastion: false
 ```
 #### SSH key
-If the bastion infrastructure is going to be created ([Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)), an ssh key is needed to connect to the bastion VM, password authentication is disabled in the virtual machine.
+Regardless of whether the the bastion infrastructure is going to be created ([Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)), an ssh key is needed to connect to the bastion VM and the OCP cluster nodes.
 
 Terraform expects a file containing the public ssh key in a file at __Terraform/Bastion/ocp-install.pub__.  This can be an already existing ssh key or a new one can be [created](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html#ssh-agent-using_installing-azure-private):
 
@@ -106,7 +123,7 @@ $ ssh-keygen -o -t rsa -f ocp-install -N "" -b 4096
 ```
 The previous command will generate two files: ocp-install containing the private key and ocp-install.pub containing the public key.  The private key is not protected y a passphrase.
 
-#### Deploy infrastructure with Terraform
+#### Deploy the infrastructure with Terraform
 To create the infrastructure run the __terraform apply__ command.  Enter "yes" at the prompt:
 
 ```  
@@ -160,8 +177,12 @@ The variable is called __create_bastion__ and its default value is __true__, the
 $ terraform apply -var="create_bastion=false"
 ```
 
+WARNING.  Once the resources are created, the Terraform directory contains the state information that would be required to update or remove these resources using terraform.  Keep this directory and its files safe
+
 ### Destroying the bastion infrastructure
-The bastion infrastructure is created by an independent module so it can be destroyed without affecting the rest of the resources.  This is usefull to reduce costs and unneeded resources once the Openshift cluster has been deployed.
+The bastion infrastructure is created by an independent module so it can be destroyed without affecting the rest of the resources.  This is useful to reduce costs and remove unused resources once the Openshift cluster has been deployed.
+
+WARNING. Before removing the bastion virtual machine backup the OCP4 directory from which the Openshift installer was run, this is required to orderly remove the Openshift cluster.  Treat this backup as sensitive information as this contains the kubeadmin password and an X509 certificate which can be used to access the cluster with admin privileges.
 
 The command to destroy only the bastion infrastructure is:
 ```
@@ -170,3 +191,78 @@ $ terraform destroy -target module.bastion
 __WARNING__ If the __-target__ option is not used, terraform will delete all resources.
 
 The option `-target module.<name>` is used to affect only a particular module in the terraform command
+
+## Set up the bastion host to install Openshift
+Ansible is used to prepare the bastion host so the Openshift 4 cluster installation can be run from it.  Before running the playbook some prerequisites must be fullfilled:
+
+Define the following variables in the file __Ansible/group_vars/all/cluster-vars__:
+* Cluster name.- A unique name for the Openshift cluster, assign the name to the variable **cluster_name**. 
+```
+cluster_name: jupiter
+```
+* DNS base domain.- This will be used to access the Openshift cluster and the applications running in it.  This DNS domain must exist in an Azure resource group before the cluser can be deployed.  The full domain is built with <cluster name>.<>base domain>, so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
+```
+base_domain: example.com
+```
+* Base domain resource group.- The Azure resource group name where the base domain exists.  Assing the name to the variable **base_domain_resource_group**
+```
+base_domain_resource_group: waawk-dns
+```
+* Number of compute nodes.- The number of compute nodes that the installer will create. Assing the number to the variable **compute_replicas**.
+```
+compute_replicas: 3
+```
+Download the Pull secret, Openshift installer and oc cli from [here](https://cloud.redhat.com/openshift/install), uncompress the installer and oc cli, and copy all these files to __Ansible/ocp_files/__
+
+The inventory file for ansible containing the [bastion] group is created by the ansible playbook itself so there is no need to create this file.
+
+The same ssh public key used for the bastion host is the one to be injected to the Openshift cluster nodes, so here again there is no need to provide a specific one.
+
+Run the playbook:
+```
+$ ansible-playbook -vvv -i inventory setup_bastion.yaml
+```
+If anything goes wrong during the playbook execution, the messages generated by ansible can be found in the file __Ansible/ansible.log__
+
+## OCP Cluster Deployment
+Connect to the bastion host using ssh and enter the __OCP4__ directory. Use its public IP and the private part of the ssh key injected installed in the bastion VM.  The bastion VM can be found in several places, for example in the terraform output:
+```
+$ cd Terraform
+$ terraform output bastion_public_ip
+20.43.63.15
+$ ssh -i ~/.ssh/ocp_install azureuser@20.43.63.15
+$ cd OCP4
+```
+The Openshift installer, oc cli and a directory with the cluster name should be found here:
+```shell
+$ ls -F
+jupiter/  oc*  openshift-install*
+```
+The directory contains the configuration file __install-config.yaml__, review and modify the file as required.
+
+Run the Openshift installer, it will prompt for the Azure credentials requires to create all resources, after that the installer starts creating the cluster components:
+```
+$ ./openshift-install create cluster --dir jupiter
+? azure subscription id 9cf87ea-3bf1-4b1a-8cc3-2aabe4cc8b98
+? azure tenant id 6d4c6af4-d80b-4f9a-b169-4b4ec1aa1480
+? azure service principal client id 0c957bc0-fbf9-fa60-6a5e-38a8bcc2e919
+? azure service principal client secret [? for help] **********************************
+INFO Saving user credentials to "/home/azureuser/.azure/osServicePrincipal.json" 
+INFO Credentials loaded from file "/home/azureuser/.azure/osServicePrincipal.json" 
+INFO Consuming Install Config from target directory 
+INFO Creating infrastructure resources...
+```
+
+## Cluster decommissioning instructions
+Deleting the cluster is a two step process:
+
+* Delete the components created by the openshift-install binary, run this command from the same directory in which the installation was run, if the bastion host has been previously deleted, recover a backup from the OCP4 directory:
+```
+$ ./openshift-install destroy cluster --dir jupiter
+```
+* Delete the components created by terraform, use the terraform destroy command. This command should be run from the same directory from which the terraform apply command was run:
+```
+$ cd Terraform
+$ terraform destroy
+```
+

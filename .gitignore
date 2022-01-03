@@ -3,3 +3,7 @@ Terraform/.terraform*
 *.tfstate
 *.tfstate.backup
 ocp-install.pub
+Ansible/ansible.log
+Ansible/group_vars/all/terraform_outputs.var
+Ansible/group_vars/all/cluster-vars
+Ansible/ocp_files

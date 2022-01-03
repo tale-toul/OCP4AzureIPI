@@ -25,3 +25,7 @@ output "bastion_public_ip" {
   description = "Public IP address assigned to the bastion host"
 }
 
+output "region_name" {
+  value = var.region_name
+  description = "Azure region to create resources in"
+}

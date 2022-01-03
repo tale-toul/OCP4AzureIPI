@@ -2,7 +2,7 @@
 variable "region_name" {
   description = "Azure Region to deploy resources"
   type = string
-  default = "France Central"
+  default = "francecentral"
 }
 
 variable "create_bastion" {
