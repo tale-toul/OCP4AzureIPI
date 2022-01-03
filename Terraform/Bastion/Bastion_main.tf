@@ -29,6 +29,7 @@ resource "azurerm_network_security_group" "nsg-bastion" {
 
 
 #BASTION VM
+
 # Public IP
 resource "azurerm_public_ip" "bastion_pub_ip" {
     name                         = "bastion_public_ip"

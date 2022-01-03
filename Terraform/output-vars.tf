@@ -18,3 +18,10 @@ output "workers_subnet" {
   value = azurerm_subnet.workers.id
   description = "Workers Subnet"
 }
+
+#The bastion module is a list of 1 element, so the index [0] is required
+output "bastion_public_ip" {
+  value = module.bastion[0].bastion_public_ip
+  description = "Public IP address assigned to the bastion host"
+}
+
