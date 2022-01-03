@@ -4,13 +4,13 @@
 * [Introduction](#introduction)
 * [Cluster deployment](#cluster-deployment)
   * [Create the infrastructure with Terraform](#create-the-infrastructure-with-terraform)
-    * [Terraform installation](#terraform.installation)
+    * [Terraform installation](#terraform-installation)
     * [Terraform initialization](#terraform-initialization)
-    * [Login to Azure](#login-to-azure)
+    * [Login into Azure](#login-into-azure)
     * [Variables definition](#variables-definition)
     * [SSH key](#ssh-key)
     * [Deploy the infrastructure with Terraform](#deploy-the-infrastructure-with-terraform)
-* [Bastion infrastructure](#Bastion infrastructure)
+* [Bastion infrastructure](#bastion-infrastructure)
   * [Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)
   * [Destroying the bastion infrastructure](#destroying-the-bastion-infrastructure)
 * [Set up the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
@@ -92,7 +92,7 @@ Check for any updates and initialize terraform plugins and modules:
   commands will detect it and remind you to do so if necessary.
 ```
 
-#### Login to Azure
+#### Login into Azure
 Before running terraform to create resources a user with enough permissions must be authenticated with Azure, there are several options to perform this authentication as explained in the terraform [documentation](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/service_principal_client_certificate) for the Azure resource provider.  The simplest authentication method uses the Azure CLI:
 
 * Install __az__ [client](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli). On [RHEL]((https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=dnf#install))
