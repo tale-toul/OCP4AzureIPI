@@ -2,6 +2,7 @@
 
 ## Table of Contents
 * [Introduction](#introduction)
+* [Outbound traffic configuration](#outbound-traffic-configuration)
 * [Cluster deployment](#cluster-deployment)
   * [Create the infrastructure with Terraform](#create-the-infrastructure-with-terraform)
     * [Terraform installation](#terraform-installation)
@@ -27,7 +28,7 @@ The Azure resources required to deploy the Openshift 4 cluster is an existing VN
 * VNet
 * Subnets.- Two subnets are needed, one for the control plane (masters) and one for the worker nodes.
 * Network security groups.- One for each of the above subnets with its own security rules.
-* Resources and configuration for the oubound network traffic from the cluster nodes to the Internet.- The requirement for these resources depends on the value of the variable [outboundType](Outbound traffic configuration) in the install-config.yaml file.
+* Resources and configuration for the oubound network traffic from the cluster nodes to the Internet.- The requirement for these resources depends on the value of the variable [outboundType](#outbound-traffic-configuration) in the install-config.yaml file.
 
 These resources are usually created by the IPI installer, to let it know that they already exist and should not be created during cluster intallation the following variables must be defined in the __platform.azure__ section in the install-config.yaml file:
 
@@ -35,7 +36,7 @@ These resources are usually created by the IPI installer, to let it know that th
 * virtualNetwork.- The name of the VNet to be used
 * controlPlaneSubnet.- The name of the subnet where master nodes will be deployed
 * computeSubnet.- The name of the subnet where worker nodes will be deployed
-* outboundType.- The type of [outboundType](Outbound traffic configuration) network configuration to use
+* outboundType.- The type of [outboundType](#outbound-traffic-configuration) network configuration to use
 
 ```
 ...
