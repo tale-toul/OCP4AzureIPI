@@ -55,5 +55,6 @@
       template:
         src: install-config.j2
         dest: OCP4/{{ cluster_name }}/install-config.yaml
+        owner: azureuser
         mode: 0644
 ...

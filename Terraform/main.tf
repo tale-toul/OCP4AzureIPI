@@ -61,7 +61,7 @@ resource "azurerm_network_security_group" "nsg-masters" {
     access = "Allow"
     protocol = "Tcp"
     source_port_range          = "*"
-    source_address_prefix      = "*"
+    source_address_prefix      = "${local.nsg_source_address}"
     destination_port_range     = "6443"
     destination_address_prefix = "*"
   }
@@ -73,7 +73,7 @@ resource "azurerm_network_security_group" "nsg-masters" {
     access = "Allow"
     protocol = "Tcp"
     source_port_range          = "*"
-    source_address_prefix      = "*"
+    source_address_prefix      = "${local.nsg_source_address}"
     destination_port_range     = "22623"
     destination_address_prefix = "*"
   }
@@ -91,7 +91,7 @@ resource "azurerm_network_security_group" "nsg-workers" {
     access = "Allow"
     protocol = "Tcp"
     source_port_range          = "*"
-    source_address_prefix      = "Internet"
+    source_address_prefix      = "${local.nsg_source_address}"
     destination_port_range     = "80"
     destination_address_prefix = "*"
   }
@@ -103,7 +103,7 @@ resource "azurerm_network_security_group" "nsg-workers" {
     access = "Allow"
     protocol = "Tcp"
     source_port_range          = "*"
-    source_address_prefix      = "Internet"
+    source_address_prefix      = "${local.nsg_source_address}"
     destination_port_range     = "443"
     destination_address_prefix = "*"
   }
@@ -120,7 +120,20 @@ resource "azurerm_subnet_network_security_group_association" "nsg-asso-workers" 
   network_security_group_id = azurerm_network_security_group.nsg-workers.id
 }
 
-#Bastion
+#Nat Gateway module
+module "nat_gateway" {
+  source = "./NatGateway"
+  count = var.outbound_type == "UserDefinedRouting" ? 1 : 0
+
+  resource_group_name = azurerm_resource_group.resogroup.name
+  vnet_name = azurerm_virtual_network.vnet.name
+  suffix = local.suffix
+  location = azurerm_resource_group.resogroup.location
+  subnet_masters_id = azurerm_subnet.masters.id
+  subnet_workers_id = azurerm_subnet.workers.id
+}
+
+#Bastion module
 module "bastion" {
   source = "./Bastion"
   count = var.create_bastion ? 1 : 0

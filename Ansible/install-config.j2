@@ -13,7 +13,6 @@ controlPlane:
   platform: {}
   replicas: 3
 metadata:
-  creationTimestamp: null
   name: {{ cluster_name }}
 networking:
   clusterNetwork:
@@ -26,11 +25,27 @@ networking:
   - 172.30.0.0/16
 platform:
   azure:
+{% if cluster_scope == 'public' %}
     baseDomainResourceGroupName: {{ base_domain_resource_group }}
+{% else %}
+    baseDomainResourceGroupName: required_but_useless
+{% endif %}
+    networkResourceGroupName: {{ network_resource_group }}
+    virtualNetwork: {{ virtual_network }}
+    controlPlaneSubnet: {{ masters_subnet | regex_search('.*/([^/]+)', '\\1') | first }}
+    computeSubnet: {{ workers_subnet | regex_search('.*/([^/]+)', '\\1') | first }}
     cloudName: AzurePublicCloud
+{% if outbound_type == "LoadBalancer" %}
     outboundType: Loadbalancer
+{% else %}
+    outboundType: UserDefinedRouting
+{% endif %}
     region: {{ region_name }}
+{% if cluster_scope == 'public' %}
 publish: External
+{% else %}
+publish: Internal
+{% endif %}
 pullSecret: '{{ lookup('file', './ocp_files/pull-secret') }}'
 sshKey: |
   {{ lookup('file', '../Terraform/Bastion/ocp-install.pub') }}

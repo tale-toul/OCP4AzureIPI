@@ -29,3 +29,13 @@ output "region_name" {
   value = var.region_name
   description = "Azure region to create resources in"
 }
+
+output "cluster_scope" {
+  value = var.cluster_scope
+  description = "Is this a public or private cluster"
+}
+
+output "outbound_type" {
+  value = var.outbound_type
+  description = "Outbound network connections go throudh a load balancer created by the installer or through user defined infrastructure"
+}

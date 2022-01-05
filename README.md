@@ -19,8 +19,41 @@
 
 ## Introduction
 
-The instructions and code in this repository can be used as an example to deploy an Openshift 4 cluster using the IPI installer in Azure on an existing VNet.  The VNet and related Azure resources required to deploy the OCP cluster into are created using terraform. 
-The OCP cluster can be [public](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-vnet.html) or [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html)
+The instructions and code in this repository can be used as an example to deploy an Openshift 4 cluster using the IPI installer in Azure on an existing VNet.  The VNet and related Azure resources required to deploy the OCP cluster are created using terraform. 
+The OCP cluster can be [public](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-vnet.html), that is accessible from Intenet; or [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html) only accessible from the VNet where it is deployed.
+
+The Azure resources required to deploy the Openshift 4 cluster is an existing VNet are:
+* Resource Group.- That contains the following resources
+* VNet
+* Subnets.- Two subnets are needed, one for the control plane (masters) and one for the worker nodes.
+* Network security groups.- One for each of the above subnets with its own security rules.
+* Resources and configuration for the oubound network traffic from the cluster nodes to the Internet.- The requirement for these resources depends on the value of the variable [outboundType](Outbound traffic configuration) in the install-config.yaml file.
+
+These resources are usually created by the IPI installer, to let it know that they already exist and should not be created during cluster intallation the following variables must be defined in the __platform.azure__ section in the install-config.yaml file:
+
+* networkResourceGroupName.- Contains the name of the resource group where the previously mentioned, user provided network resources exist.
+* virtualNetwork.- The name of the VNet to be used
+* controlPlaneSubnet.- The name of the subnet where master nodes will be deployed
+* computeSubnet.- The name of the subnet where worker nodes will be deployed
+* outboundType.- The type of [outboundType](Outbound traffic configuration) network configuration to use
+
+```
+...
+platform:
+  azure:
+    networkResourceGroupName: ocp4-resogroup-gohtd
+    virtualNetwork: vnet-gohtd
+    controlPlaneSubnet: masters-gohtd
+    computeSubnet: workers-gohtd
+    outboundType: Loadbalancer
+...
+```
+## Outbound traffic configuration
+The network resources and configuration defining how the cluster nodes connect to the Internet (outbound traffic) depends on the value of the variable __outboundType__ in the install-config.yaml file. This configuration is independent from that of the inbound cluster traffic, whether this is a public or private cluster.
+
+The __outboundType__ variable can take only two possible values: Loadbalancer and UserDefinedRouting:
+* LoadBalancer.- When this value is used the IPI installer will create an outbound rule in the public load balancer to allow route outgoing connections from the nodes to the Internet.  If the the cluster is public, the load balancer is used for routing both inbound traffic from the Internet to the nodes and outbound traffic from the nodes to the Internet.  If the cluster is private there is no inbound traffic from the Internet to the nodes, but the load balancer will still be created and will only be used for outbound traffic from the nodes to the Internet.
+* UserDefinedRouting.- When this value is used @#Test this scenario to see if the load balancer is still created#@
 
 ## Cluster deployment
 
@@ -113,6 +146,15 @@ region_name: "francecentral"
 ```
 create_bastion: false
 ```
+**cluster_scope**.- Used to define if the cluster will be public (accessible from the Internet) or private (not accessible from the Internet).  Can contain only two values: "public" or "private", default is public
+```
+cluster_scope: public
+```
+**outbound_type**.- Defines the networking method that cluster nodes use to connect to the Internet (outbound traffic).  Can have the values: _LoadBalancer_, the installer will create a load balancer with outbound rules, even if the cluster scope is private; and _UserDefinedRouting_, the outbound rules in the load balancer will not be created and the user must provide the outbound configuration, for example a NAT gateway".  Defaults to _LoadBalancer_.
+```
+outbound_type: LoadBalancer
+```
+
 #### SSH key
 Regardless of whether the the bastion infrastructure is going to be created ([Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)), an ssh key is needed to connect to the bastion VM and the OCP cluster nodes.
 
@@ -143,7 +185,7 @@ Apply complete! Resources: 9 added, 0 changed, 0 destroyed.
 Outputs:
 ...
 ```  
-Save the command used to create the infrastructure for future reference
+Save the command used to create the infrastructure for future reference.  The same variable definitions must be used when [destroying the resources](#cluster-decommissioning-instructions).
 
 ```  
 $ echo "!!" > terraform_apply.txt
@@ -200,7 +242,7 @@ Define the following variables in the file __Ansible/group_vars/all/cluster-vars
 ```
 cluster_name: jupiter
 ```
-* DNS base domain.- This will be used to access the Openshift cluster and the applications running in it.  This DNS domain must exist in an Azure resource group before the cluser can be deployed.  The full domain is built with <cluster name>.<>base domain>, so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
+* DNS base domain.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a public cluster, this DNS domain must exist in an Azure resource group before the cluser can be deployed.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as __<cluster name>.<>base domain>__, so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
 ```
 base_domain: example.com
 ```
@@ -240,6 +282,12 @@ jupiter/  oc*  openshift-install*
 ```
 The directory contains the configuration file __install-config.yaml__, review and modify the file as required.
 
+Before running the installer it is a good practice to backup the install-config.yaml because the installer removes it as part of the installation process, and also run the installer in a tmux session so the terminal doesn't get blocked for around 40 minutes, which is the time the installation needs to complete.
+
+```
+$ cp jupiter/install-config.yaml .
+$ tmux
+```
 Run the Openshift installer, it will prompt for the Azure credentials requires to create all resources, after that the installer starts creating the cluster components:
 ```
 $ ./openshift-install create cluster --dir jupiter
@@ -260,9 +308,9 @@ Deleting the cluster is a two step process:
 ```
 $ ./openshift-install destroy cluster --dir jupiter
 ```
-* Delete the components created by terraform, use the terraform destroy command. This command should be run from the same directory from which the terraform apply command was run:
+* Delete the components created by terraform, use the terraform destroy command with the same variable definitions that were used when the resources were created. This command should be run from the same directory from which the terraform apply command was run:
 ```
 $ cd Terraform
-$ terraform destroy
+$ terraform destroy -var region_name="germanywestcentral" -var cluster_scope="private"
 ```
 
