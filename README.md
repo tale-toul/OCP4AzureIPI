@@ -50,11 +50,13 @@ platform:
 ...
 ```
 ## Outbound traffic configuration
-The network resources and configuration defining how the cluster nodes connect to the Internet (outbound traffic) depends on the value of the variable __outboundType__ in the install-config.yaml file. This configuration is independent from that of the inbound cluster traffic, whether this is a public or private cluster.
+The network resources and configuration allowing the cluster nodes to connect to the Internet (outbound traffic) depend on the value of the variable __outboundType__ in the install-config.yaml file. This configuration is independent from that of the inbound cluster traffic, whether this is a public or private cluster.
 
 The __outboundType__ variable can take only two possible values: Loadbalancer and UserDefinedRouting:
-* LoadBalancer.- When this value is used the IPI installer will create an outbound rule in the public load balancer to allow route outgoing connections from the nodes to the Internet.  If the the cluster is public, the load balancer is used for routing both inbound traffic from the Internet to the nodes and outbound traffic from the nodes to the Internet.  If the cluster is private there is no inbound traffic from the Internet to the nodes, but the load balancer will still be created and will only be used for outbound traffic from the nodes to the Internet.
-* UserDefinedRouting.- When this value is used @#Test this scenario to see if the load balancer is still created#@
+* **LoadBalancer**.- The IPI installer will create an outbound rule in the public load balancer to allow outgoing connections from the nodes to the Internet.  If the the cluster is public, the load balancer is used for routing both inbound traffic from the Internet to the nodes and outbound traffic from the nodes to the Internet.  If the cluster is private there is no inbound traffic from the Internet to the nodes, but the load balancer will still be created and will only be used for outbound traffic from the nodes to the Internet.
+* **UserDefinedRouting**.- The necessary infrastructure and configuration to allow the cluster nodes to connect to the internet must be in place before running the IPI installer, different options exit in Azure for this: NAT gateway; Azure firewall; Proxy server; etc.  In this repository the terraform template creates a NAT gateway if the **outbound_type** variable contains the value _UserDefinedRouting_.  
+
+When outboundType = UserDefinedRouting, a load balancer is still created but contains no frontend IP address, load balancing rules or outbound rules, so it serves no purpose.  A fully functional internal load balancer is always created for access to the API service and applications only from inside the VNet.
 
 ## Cluster deployment
 
