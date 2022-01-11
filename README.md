@@ -405,8 +405,11 @@ Obtain the certificates required to encrypt the secure connections with the clus
 
 Each set contains two certificates: 
 * A PKCS12 (PFX) file containing the public and private parts of the certificate.- Used to encrypt connections between clients and the application gateway.  The Application Gateway terminates the TLS connections so it needs a complete certificate, including the private and public keys.  This certificate can be obtained from a well known certification authority or generated internally.  The certificate should be valid for the DNS domain used to access the applications, but the external and internal domain don't need to be the same, the external hostname of an application could be app1.example.com and its internal name app1.apps.ocp4.jupiter.net, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind and can simplify moving applications from one cluster to another.  This terraform example only supports wildcard certificates, that means that the certificate is valid for any application in the DNS domain.  
-  One possible way to obtain these certificates is by extracting them from the API endpoint and the default ingress controller
-  The API endpoint certificate components can be extracted by running the following command.  The command generates the files __tls.crt__ and __tls.key__.
+
+    One possible way to obtain these certificates is by extracting them from the API endpoint and the default ingress controller
+
+    The API endpoint certificate components can be extracted by running the following command.  The command generates the files __tls.crt__ and __tls.key__.
+
 ```
 $ oc extract secret/external-loadbalancer-serving-certkey -n openshift-kube-apiserver
 tls.crt
