@@ -327,7 +327,30 @@ There are many options to make applications and API publicly available, this rep
 To successfully deploy the Application Gateway, the Azure infrastructure must have been deployed using the terraform templates in this repository, and the Openshift cluster needs to be already running.
 
 ### Variables definition
-The following variables are used to pass information to terraform so the Application Gateway can be created, some of these variables are used to adjust the configuration.  Add the definition to a file in the __Terraform/AppGateway__ directory, for example **AppGateway_vars**:
+The following variables are used to pass information to terraform so the Application Gateway can be created and configured, some of these variables are used to adjust the configuration.  Add the variables definition to a file in the __Terraform/AppGateway__ directory, for example **AppGateway_vars** and call it in with the option **-var-file AppGateway_vars**:
+
+The next two variables can be obtained from the Azure portal or using the following commands:
+
+Get the list of load balancers in the resource group created by the IPI installer.  The LB with the _internal_ word in its name is the one of interest here, the other LB is not even functional in a private cluster:
+```
+$ az network lb list -g lana-l855j-rg -o table
+Location            Name                 ProvisioningState    ResourceGroup    ResourceGuid
+------------------  -------------------  -------------------  ---------------  ------------------------------------
+germanywestcentral  lana-l855j           Succeeded            lana-l855j-rg    73c41f07-886c-46f1-b4cc-007b64924ff4
+germanywestcentral  lana-l855j-internal  Succeeded            lana-l855j-rg    9a4d37c9-b139-479b-9905-e12743a3ac47
+```
+Get the frontend IPs associated with the internal LB, the one with the name _internal-lb-ip-v4_ is the IP for the API endpoint, the one with the long string of random characters is the IP for application access:
+```
+$ az network lb frontend-ip list -g lana-l855j-rg --lb-name lana-l855j-internal -o table
+Name                              PrivateIpAddress    PrivateIpAddressVersion    PrivateIpAllocationMethod    ProvisioningState    ResourceGroup
+--------------------------------  ------------------  -------------------------  ---------------------------  -------------------  ---------------
+internal-lb-ip-v4                 10.0.1.4            IPv4                       Dynamic                      Succeeded            lana-l855j-rg
+a0a66b12128ec4f33bbf3fb705e48e9e  10.0.2.8            IPv4                       Dynamic                      Succeeded            lana-l855j-rg
+```
+Further details for the IPs can be obtained by using a command like:
+```
+$ az network lb frontend-ip show -g lana-l855j-rg --lb-name lana-l855j-internal -n internal-lb-ip-v4|jq
+```
 
 * **api_lb_ip**.- Private IP of the internal load balancer used for API access.  This variable is not required if the API endpoint is not going to be made public.
 ```
