@@ -409,11 +409,12 @@ Each set contains two certificates:
     One possible way to obtain these certificates is by extracting them from the API endpoint and the default ingress controller
 
     The API endpoint certificate components can be extracted by running the following command.  The command generates the files __tls.crt__ and __tls.key__.
-```
+
+    ```
 $ oc extract secret/external-loadbalancer-serving-certkey -n openshift-kube-apiserver
 tls.crt
 tls.key
-```
+    ```
 
     To build the PKCS12 (PFX) file required by the Application Gateway use the following command. The password requested by the command is used to encrypt the resulting _api-jupiter.pfx_ file, and must be assigned to the variable api_cert_passwd:
 ```
