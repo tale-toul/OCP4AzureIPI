@@ -404,9 +404,22 @@ Define the variable **cluster_domain** with the DNS domain used by the cluster.
 Obtain the certificates required to encrypt the secure connections with the cluster.  Connections to the API and the secure routes are encrypted end to end, from client to OCP cluster.  However the Application Gateway terminates the TLS connections and stablish new secure connections with the OCP cluster.  This means that two sets of certificates are required, one for the API endpoint and another one for the applications using secure routes.  If the API endpoint is not public, its certificate set is not required.
 
 Each set contains two certificates: 
-* A PKCS12 (PFX) file containing the public and private parts of the certificate.- Used to encrypt connections between clients and the application gateway.  The Application Gateway terminates the TLS connections so it needs a complete certificate, including the private and public keys.  This certificate can be obtained from a well known certification authority or generated internally.  The certificate should be valid for the DNS domain used to access the applications, but the external and internal domain don't need to be the same, the external hostname of an application could be app1.example.com and its internal name app1.apps.ocp4.jupiter.net, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind and can simplify moving applications from one cluster to another.  This terraform example only supports wildcard certificates, that means that the certificate is valid for any application in the DNS domain.  
+* A PKCS12 (PFX) file containing the public and private parts of the certificate.- Used to encrypt connections between clients and the application gateway.  
 
-    One possible way to obtain these certificates is by extracting them from the API endpoint and the default ingress controller
+    The Application Gateway terminates the TLS connections so it needs a complete certificate, including the private and public keys.  
+
+    This certificate can be obtained from a well known certification authority or generated internally.  
+
+    The certificate should be valid for the DNS domain used to access the applications, but the external and internal domains don't need to be the same, for example the external hostname of an application could be _app1.example.com_ and its internal name _app1.apps.ocp4.jupiter.net_, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind the application gateway and can simplify the migration of applications from one cluster to another.  
+
+    This repository only supports wildcard certificates, covering any application in the DNS domain for which the certificate is valid.  A wildcard certificate contains a CN field and possibly a SAN field like in the following example:
+
+        Subject: CN = *.apps.lana.azurecluster.sureshot.pw. 
+        ...
+        X509v3 Subject Alternative Name: 
+            DNS:*.apps.lana.azurecluster.sureshot.pw
+
+    One possible way to obtain these certificates is by extracting them from the API endpoint and the default ingress controller, but a newly created certificate is also valid as long as it is a wildcard certificate.
 
     The API endpoint certificate components can be extracted by running the following command.  The command generates the files __tls.crt__ and __tls.key__.
 
@@ -415,26 +428,26 @@ Each set contains two certificates:
         tls.key
 
     To build the PKCS12 (PFX) file required by the Application Gateway use the following command. The password requested by the command is used to encrypt the resulting _api-jupiter.pfx_ file, and must be assigned to the variable api_cert_passwd:
-```
-$ openssl pkcs12 -export -out api-cert.pfx -inkey tls.key -in tls.crt
-Enter Export Password:
-Verifying - Enter Export Password:
-```
-     The certificate for the secure routes can be extracted running the following command, the __--confirm__ option is used to overwrite the files if they already exist.
-```
-$ oc extract secret/router-certs-default -n openshift-ingress --confirm
-tls.crt
-tls.key
-```
-   To build the PKCS12 (PFX) file the following command is used, similar to the one above:
-```
-$ openssl pkcs12 -export -out apps-cert.pfx -inkey tls.key -in tls.crt 
-Enter Export Password:
-Verifying - Enter Export Password:
-```
+
+        $ openssl pkcs12 -export -out api-cert.pfx -inkey tls.key -in tls.crt
+        Enter Export Password:
+        Verifying - Enter Export Password:
+
+    The certificate for the secure routes can be extracted running the following command, the __--confirm__ option is used to overwrite the files if they already exist.
+
+        $ oc extract secret/router-certs-default -n openshift-ingress --confirm
+        tls.crt
+        tls.key
+
+   To build the PKCS12 (PFX) file the following command is used, similar to the one above, the password provided must be assigned to the variable apps_cert_passwd
+
+        $ openssl pkcs12 -export -out apps-cert.pfx -inkey tls.key -in tls.crt 
+        Enter Export Password:
+        Verifying - Enter Export Password:
+
    The terraform template expects to find the API endpoint PKCS12 certificate in a file called __api-cert.pfx__ and the PKCS12 certificate for application secure routes in a file called __apps-cert.pfx__, both in the directory __Terraform/AppGateway__.
    
-* The public x509 certificate of the certification authority (CA) used to sign the certificate used by the Openshift ingress controller.-
+* The public x509 certificate of the certification authority (CA) signing the certificate used by the Openshift ingress controller.- This certificate must be extracted from the cluster,
 
 
 
