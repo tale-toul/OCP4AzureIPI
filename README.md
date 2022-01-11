@@ -362,11 +362,11 @@ apps_lb_ip = "10.0.2.8"
 ```
 * **api_cert_passwd**.- Password to decrypt PKCS12 certificate for API listener. This variable is not required if the API endpoint is not going to be made public.
 ```
-api_cert_passwd = "avmapu"
+api_cert_passwd = "l3l#ah91"
 ```
 * **apps_cert_passwd**.- Password to decrypt PKCS12 certificate for APPS listener. This variable is always required.
 ```
-apps_cert_passwd = "avmapu"
+apps_cert_passwd = "er4a9$C"
 ```
 * **ssl_listener_hostnames**.- List of valid hostnames for the listener and http settings used to access applications in the \*.apps domain when using TLS connections.  This variable is always required.
 ```
@@ -395,7 +395,9 @@ Decide whether the API endpoint will be made public or not assigning _true_ or _
 
 Obtain the IP addresses to assing to **apps_lb_ip**, and to **api_lb_api** if required, example commands to get this information can be found in the section [Variables definition](#variables-definition).
 
-Define the variable **ssl_listener_hostnames** with a list of short hostnames, without the DNS domain, of the Openshift application routes to be published using the https protocol.  This list should at least contain the following names: "oauth-openshift", "console-openshift-console", "grafana-openshift-monitoring", "prometheus-k8s-openshift-monitoring".  If additional routes are required at a later time, just add the names to the list and rerun terraform.
+Define the variable **ssl_listener_hostnames** with a list of short hostnames, without the DNS domain, of the Openshift application routes to be published using the https protocol.  This list should at least contain the following names: "oauth-openshift", "console-openshift-console", "grafana-openshift-monitoring", "prometheus-k8s-openshift-monitoring".  
+
+If additional routes are required at a later time, just add the names to the list and rerun terraform.
 
 Define the variable **cluster_domain** with the DNS domain used by the cluster.
 
@@ -403,9 +405,34 @@ Obtain the certificates required to encrypt the secure connections with the clus
 
 Each set contains to certificates: 
 * A PKCS12 or PFX file containing the public and private parts of the certificate.- This is used to encrypt connections between the client and the application gateway.  As stated before the Application Gateway terminates the TLS connections so it needs a complete certificate including a private key.  This certificate can be obtained from a well known certification authority or generated internally.  The certificate should be valid for the DNS domain used to access the applications, but the external and internal domain don't need to be the same, the external hostname of an application could be app1.example.com and its internal name app1.apps.ocp4.jupiter.net, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind and can simplify moving applications from one cluster to another.  This terraform example only supports wildcard certificates, that means that the certificate is valid for any application in the DNS domain.  
-  One way to obtain this certificate is by using the same certificate used by the API endpoint and the default ingress controller.
-
-* The public x509 certificate of the certification authority (CA) of the certificate used by the Openshift ingress controller.-
+  One possible way to obtain these certificates is by extracting them from the API endpoint and the default ingress controller
+  The API endpoint certificate components can be extracted by running the following command.  The command generates the files __tls.crt__ and __tls.key__.
+```
+$ oc extract secret/external-loadbalancer-serving-certkey -n openshift-kube-apiserver
+tls.crt
+tls.key
+```
+   To build the PKCS12 (PFX) file required by the Application Gateway use the following command. The password requested by the command is used to encrypt the resulting _api-jupiter.pfx_ file, and must be assigned to the variable api_cert_passwd:
+```
+$ openssl pkcs12 -export -out api-cert.pfx -inkey tls.key -in tls.crt
+Enter Export Password:
+Verifying - Enter Export Password:
+```
+  The certificate for the secure routes can be extracted running the following command, the __--confirm__ option is used to overwrite the files if they already exist.
+```
+$ oc extract secret/router-certs-default -n openshift-ingress --confirm
+tls.crt
+tls.key
+```
+   To build the PKCS12 (PFX) file the following command is used, similar to the one above:
+```
+$ openssl pkcs12 -export -out apps-cert.pfx -inkey tls.key -in tls.crt 
+Enter Export Password:
+Verifying - Enter Export Password:
+```
+   The terraform template expects to find the API endpoint PKCS12 certificate in a file called __api-cert.pfx__ and the PKCS12 certificate for application secure routes in a file called __apps-cert.pfx__, both in the directory __Terraform/AppGateway__.
+   
+* The public x509 certificate of the certification authority (CA) used to sign the certificate used by the Openshift ingress controller.-
 
 
 
@@ -413,3 +440,5 @@ Each set contains to certificates:
 ## Publishing TLS Routes via the Application Gateway
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
 @#Why use a map instead of a set?  To avoid rebuilding a lot of the app gateway if the list is reordered alphabetically#@
+
+## Configuring DNS resolution with dnsmasq
