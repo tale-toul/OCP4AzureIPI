@@ -17,7 +17,7 @@
 * [Set up the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
 * [Cluster decommissioning instructions](#cluster-decommissioning-instructions)
-* [Accessing the OpenShift Cluster from The Internet](*accessing-the-openshift-cluster-from-the-internet)
+* [Accessing the OpenShift Cluster from The Internet](#accessing-the-openshift-cluster-from-the-internet)
 
 ## Introduction
 
