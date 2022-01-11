@@ -403,8 +403,8 @@ Define the variable **cluster_domain** with the DNS domain used by the cluster.
 
 Obtain the certificates required to encrypt the secure connections with the cluster.  Connections to the API and the secure routes are encrypted end to end, from client to OCP cluster.  However the Application Gateway terminates the TLS connections and stablish new secure connections with the OCP cluster.  This means that two sets of certificates are required, one for the API endpoint and another one for the applications using secure routes.  If the API endpoint is not public, its certificate set is not required.
 
-Each set contains to certificates: 
-* A PKCS12 or PFX file containing the public and private parts of the certificate.- This is used to encrypt connections between the client and the application gateway.  As stated before the Application Gateway terminates the TLS connections so it needs a complete certificate including a private key.  This certificate can be obtained from a well known certification authority or generated internally.  The certificate should be valid for the DNS domain used to access the applications, but the external and internal domain don't need to be the same, the external hostname of an application could be app1.example.com and its internal name app1.apps.ocp4.jupiter.net, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind and can simplify moving applications from one cluster to another.  This terraform example only supports wildcard certificates, that means that the certificate is valid for any application in the DNS domain.  
+Each set contains two certificates: 
+* A PKCS12 (PFX) file containing the public and private parts of the certificate.- Used to encrypt connections between clients and the application gateway.  The Application Gateway terminates the TLS connections so it needs a complete certificate, including the private and public keys.  This certificate can be obtained from a well known certification authority or generated internally.  The certificate should be valid for the DNS domain used to access the applications, but the external and internal domain don't need to be the same, the external hostname of an application could be app1.example.com and its internal name app1.apps.ocp4.jupiter.net, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind and can simplify moving applications from one cluster to another.  This terraform example only supports wildcard certificates, that means that the certificate is valid for any application in the DNS domain.  
   One possible way to obtain these certificates is by extracting them from the API endpoint and the default ingress controller
   The API endpoint certificate components can be extracted by running the following command.  The command generates the files __tls.crt__ and __tls.key__.
 ```
@@ -412,13 +412,13 @@ $ oc extract secret/external-loadbalancer-serving-certkey -n openshift-kube-apis
 tls.crt
 tls.key
 ```
-   To build the PKCS12 (PFX) file required by the Application Gateway use the following command. The password requested by the command is used to encrypt the resulting _api-jupiter.pfx_ file, and must be assigned to the variable api_cert_passwd:
+    To build the PKCS12 (PFX) file required by the Application Gateway use the following command. The password requested by the command is used to encrypt the resulting _api-jupiter.pfx_ file, and must be assigned to the variable api_cert_passwd:
 ```
 $ openssl pkcs12 -export -out api-cert.pfx -inkey tls.key -in tls.crt
 Enter Export Password:
 Verifying - Enter Export Password:
 ```
-  The certificate for the secure routes can be extracted running the following command, the __--confirm__ option is used to overwrite the files if they already exist.
+     The certificate for the secure routes can be extracted running the following command, the __--confirm__ option is used to overwrite the files if they already exist.
 ```
 $ oc extract secret/router-certs-default -n openshift-ingress --confirm
 tls.crt
