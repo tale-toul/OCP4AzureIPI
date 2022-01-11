@@ -1,5 +1,5 @@
 .*.swp
-Terraform/.terraform*
+*.terraform*
 *.tfstate
 *.tfstate.backup
 ocp-install.pub

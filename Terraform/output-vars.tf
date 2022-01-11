@@ -39,3 +39,8 @@ output "outbound_type" {
   value = var.outbound_type
   description = "Outbound network connections go throudh a load balancer created by the installer or through user defined infrastructure"
 }
+
+output "suffix" {
+  value = local.suffix
+  description = "Random short string used as suffix in many resource names"
+}

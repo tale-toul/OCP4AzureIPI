@@ -17,6 +17,7 @@
 * [Set up the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
 * [Cluster decommissioning instructions](#cluster-decommissioning-instructions)
+* [Accessing the OpenShift Cluster from The Internet](*accessing-the-openshift-cluster-from-the-internet)
 
 ## Introduction
 
@@ -193,9 +194,10 @@ Save the command used to create the infrastructure for future reference.  The sa
 ```  
 $ echo "!!" > terraform_apply.txt
 ```  
-## Bastion infrastructure
+## Bastion Infrastructure
 Reference documentation on how to create the VM with terraform in Azure [1](https://docs.microsoft.com/en-us/azure/developer/terraform/create-linux-virtual-machine-with-infrastructure) and [2](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/linux_virtual_machine)
-A bastion host is deployed in its own subnet and gets assigned a network security rule that allows ssh connections into it.  The bastion host is intended to run the OCP 4 installer from it.
+
+By default a bastion host is created in its own subnet and gets assigned a network security rule that allows ssh connections into it.  The bastion host is intended to run the OCP 4 installer from it, and once the OCP cluster is installed, it can be used to access the cluster using the __oc__ cli.
 
 The bastion infrastructure is created from a module in terraform so it can be conditionally created and easily destroyed once it is not needed anymore.
 
@@ -317,3 +319,46 @@ $ cd Terraform
 $ terraform destroy -var region_name="germanywestcentral" -var cluster_scope="private"
 ```
 
+## Accessing a private OpenShift Cluster from The Internet
+If the Openshift cluster deployed following the instructions in this repository is private, the API and any application deployed in it are not accessible from the Internet.  This may be the desired state when the cluster is deployed, but at a later time when the cluster is fully set up and production applications are deployed and ready, it is possible that a particular set of applications or even the API are expected to be publicly available.  
+
+There are many options to make applications and API publicly available, this repository includes a terraform module that can be used for such purpose, it can be found in the directory __Terraform/AppGateway__.  This module creates an [application gateway](https://docs.microsoft.com/en-us/azure/application-gateway/) that provides access to the applications running in the cluster and optionally to the API endpoint.
+
+To successfully deploy the Application Gateway, the Azure infrastructure must have been deployed using the terraform templates in this repository, and the Openshift cluster needs to be already running.
+
+### Variables definition
+The following variables are used to pass information to terraform so the Application Gateway can be created, some of these variables are used to adjust the configuration.  Add the definition to a file in the __Terraform/AppGateway__ directory, for example **AppGateway_vars**:
+
+* **api_lb_ip**.- Private IP of the internal load balancer used for API access.  This variable is not required if the API endpoint is not going to be made public.
+```
+api_lb_ip = "10.0.1.4"
+```
+* **apps_lb_ip**.- Private IP of the internal load balancer used for application access.  This variable is always required.
+```
+apps_lb_ip = "10.0.2.8"
+```
+* **api_cert_passwd**.- Password to decrypt PKCS12 certificate for API listener. This variable is not required if the API endpoint is not going to be made public.
+```
+api_cert_passwd = "avmapu"
+```
+* **apps_cert_passwd**.- Password to decrypt PKCS12 certificate for APPS listener. This variable is always required.
+```
+apps_cert_passwd = "avmapu"
+```
+* **ssl_listener_hostnames**.- List of valid hostnames for the listener and http settings used to access applications in the \*.apps domain when using TLS connections.  This variable is always required.
+```
+ssl_listener_hostnames = [ "httpd-example-caprice", 
+                          "oauth-openshift",
+                          "console-openshift-console",
+                          "grafana-openshift-monitoring",
+                          "prometheus-k8s-openshift-monitoring",
+                        ]
+```
+* **cluster_domain**.- DNS domain used by cluster. This variable is always required.
+```
+cluster_domain = "lana.azurecluster.sureshot.pw"
+```
+* **publish_api**.- This boolean variable determines if the API entry point is to be published.  Defaults to false or the API endpoint will not be made public.
+```
+publish_api = true
+```

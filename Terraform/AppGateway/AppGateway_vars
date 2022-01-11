@@ -1,0 +1,11 @@
+api_lb_ip = "10.0.1.4"
+apps_lb_ip = "10.0.2.8"
+api_cert_passwd = "45sjfx-r6"
+apps_cert_passwd = "V$9llw2h"
+ssl_listener_hostnames = [ "httpd-example-caprice", 
+                          "oauth-openshift",
+                          "console-openshift-console",
+                          "grafana-openshift-monitoring",
+                          "prometheus-k8s-openshift-monitoring",
+                        ]
+cluster_domain = "lana.azurecluster.sureshot.pw"
