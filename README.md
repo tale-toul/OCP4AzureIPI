@@ -16,12 +16,13 @@
   * [Destroying the bastion infrastructure](#destroying-the-bastion-infrastructure)
 * [Set up the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
-* [Cluster decommissioning instructions](#cluster-decommissioning-instructions)
+* [Cluster Decommission Instructions](#cluster-decommission-instructions)
 * [Accessing a private OpenShift Cluster from The Internet](#accessing-a-private-openshift-cluster-from-the-internet)
   * [Variables definition](#variables-definition)
   * [Application Gateway Deployment](#application-gateway-deployment)
   * [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway)
   * [Updating the Configuration](#updating-the-configuration)
+  * [Application Gateway Decommission](#application-gateway-decommission)
 * [Configuring DNS resolution with dnsmasq](#configuring-dns-resolution-with-dnsmasq)
 
 ## Introduction
@@ -288,7 +289,7 @@ $ cd OCP4
 The Openshift installer, oc cli and a directory with the cluster name should be found here:
 ```shell
 $ ls -F
-jupiter/  oc*  openshift-install*
+jupiter/  oc  openshift-install
 ```
 The directory contains the configuration file __install-config.yaml__, review and modify the file as required.
 
@@ -311,10 +312,10 @@ INFO Consuming Install Config from target directory
 INFO Creating infrastructure resources...
 ```
 
-## Cluster decommissioning instructions
-Deleting the cluster is a two step process:
+## Cluster Decommission Instructions
+Deleting the cluster is a multi step process:
 
-* Delete the components created by the openshift-install binary, run this command from the same directory in which the installation was run, if the bastion host has been previously deleted, recover a backup from the OCP4 directory:
+* Delete the components created by the openshift-install binary, run this command in the directory the installation was run from.  If the installation was run in the bastion host and it has been previously deleted, recover a backup of the __/home/azureuser/OCP4__ directory containing the status files required by the Openshift installer:
 ```
 $ ./openshift-install destroy cluster --dir jupiter
 ```
@@ -323,6 +324,7 @@ $ ./openshift-install destroy cluster --dir jupiter
 $ cd Terraform
 $ terraform destroy -var region_name="germanywestcentral" -var cluster_scope="private"
 ```
+* If an [Application Gateway](#accessing-a-private-openshift-cluster-from-the-internet) has been created using the terraform module in this repository, remove it following the instruction in [this section ](#application-gateway-decommission)
 
 ## Accessing a private OpenShift Cluster from The Internet
 If the Openshift cluster deployed following the instructions in this repository is private, the API and any application deployed in it are not accessible from the Internet.  This may be the desired state when the cluster is deployed, but at a later time when the cluster is fully set up and production applications are deployed and ready, it is possible that a particular set of applications or even the API are expected to be publicly available.  
@@ -560,7 +562,7 @@ For example if the API endpoint is public and the certificate is valid for the D
 ```
 $ oc login -u kubeadmin https://api.jupiter.example.com:6443
 ```
-And if the wildcard certificate is valid for the domain *.apps.jupiter.example.com the cluster web console can be accessed a thttps://console-openshift-console.apps.jupiter.example.com
+And if the wildcard certificate is valid for the domain \*.apps.jupiter.example.com the cluster web console can be accessed a thttps://console-openshift-console.apps.jupiter.example.com
 
 To be able to connect to these URLs and to the cluster in general, the DNS configuration in the client must be able to resolve the names api.jupiter.example.com and any hostname associated with an application route, be it secure or not.  All these DNS records must resolve to the public IP of the Application Gateway, to find out the value of that IP run the following command in the directory __Terraform/AppGateway__:
 ```
@@ -582,6 +584,16 @@ $ terraform apply -var-file new_AppGateway_vars
 ```
 Terraform will detect the changes and modify only the resources that are affected by these changes.
 
+### Application Gateway Decommission
+The terraform module for the Application Gateway is run independently from the one creating the infrastructure to deploy the Openshift cluster, that means the Application Gateway can be removed without affecting the rest of the infrastructure.
+
+Removing the Application Gateway will have the effect of making the Openshift cluster private again, closing the access from the Internet to all published applications, using secure routes or not, and the API endpoint if this was published.
+
+The command to remove the Application Gateway should be called passing the last variables definition file that was used to apply the configuration. 
+```
+$ terraform remove -var-file AppGateway_vars
+```
+If at a later time the Application gateway is created again using the same variables file, the resulting configuration should be the same except for the frontend public IP that will probably change.  In that case the DNS records resolving the external domain must be updated to use the new IP address.
 
 ## Configuring DNS resolution with dnsmasq
 Here is how to setup dnsmasq in the client host to resolve the DNS queries for the API and application routes in the Openshift cluster.  The DNS records must resolve to the public IP addressof the Application Gateway, this IP can be found out by running the following command in the directory __Terraform/AppGateway__:
@@ -625,3 +637,4 @@ $ dig +short www.apps.lana.azurecluster.sureshot.pw
 ## Publishing TLS Routes via the Application Gateway
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
 @#Why use a map instead of a set?  To avoid rebuilding a lot of the app gateway if the list is reordered alphabetically#@
+@#Using let's encrypt to add a valid certificate to the Application Gateway#@
