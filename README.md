@@ -18,6 +18,10 @@
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
 * [Cluster decommissioning instructions](#cluster-decommissioning-instructions)
 * [Accessing a private OpenShift Cluster from The Internet](#accessing-a-private-openshift-cluster-from-the-internet)
+  * [Variables definition](#variables-definition)
+  * [Application Gateway Deployment](#application-gateway-deployment)
+  * [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway)
+  * [Updating the Configuration](#updating-the-configuration)
 
 ## Introduction
 
@@ -379,7 +383,7 @@ ssl_listener_hostnames = [ "httpd-example-caprice",
 ```
 * **cluster_domain**.- DNS domain used by cluster. This variable is always required.
 ```
-cluster_domain = "lana.azurecluster.sureshot.pw"
+cluster_domain = "jupiter.example.com"
 ```
 * **publish_api**.- This boolean variable determines if the API entry point is to be published.  Defaults to false or the API endpoint will not be made public.
 ```
@@ -391,7 +395,9 @@ Terraform is used to deploy the Application Gateway and some additional required
 
 Create a file to hold the variables detailed in the previous section, for example _AppGateway_input-vars.tf_.
 
-Decide whether the API endpoint will be made public or not assigning _true_ or _false: to the variable **publish_api**, _false_ is the default value.  If the API will not be public the following variables don't need to be defined: **publish_api**; **api_lb_ip**; **api_cert_passwd**.  The API endpoint can be publish or unpublish at anytime just by changing the value of the **publish_api** variable and rerunning terraform.
+Decide whether the API endpoint will be made public or not assigning _true_ or _false: to the variable **publish_api**, _false_ is the default value.  If the API will not be public the following variables don't need to be defined: **publish_api**; **api_lb_ip**; **api_cert_passwd**.  The certificate file api-cert.pfx is also not required in this case.
+
+The API endpoint can be publish or unpublish at anytime just by changing the value of the **publish_api** variable and rerunning terraform.
 
 Obtain the IP addresses to assing to **apps_lb_ip**, and to **api_lb_api** if required, example commands to get this information can be found in the section [Variables definition](#variables-definition).
 
@@ -410,16 +416,18 @@ Each set contains two certificates:
 
     This certificate can be obtained from a well known certification authority or generated internally.  
 
-    The certificate should be valid for the DNS domain used to access the applications, but the external and internal domains don't need to be the same, for example the external hostname of an application could be _app1.example.com_ and its internal name _app1.apps.ocp4.jupiter.net_, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind the application gateway and can simplify the migration of applications from one cluster to another.  
+    The certificate to access application secure routes should be valid for the DNS domain used to access the applications, but the external and internal domains don't need to be the same, for example the external hostname of an application could be _app1.example.com_ and its internal name _app1.apps.ocp4.jupiter.net_, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind the application gateway and can simplify the migration of applications from one cluster to another.  
 
     This repository only supports wildcard certificates, covering any application in the DNS domain for which the certificate is valid.  A wildcard certificate contains a CN field and possibly a SAN field like in the following example:
 
-        Subject: CN = *.apps.lana.azurecluster.sureshot.pw. 
+        Subject: CN = *.apps.jupiter.example.com
         ...
         X509v3 Subject Alternative Name: 
-            DNS:*.apps.lana.azurecluster.sureshot.pw
+            DNS:*.apps.jupiter.example.com
 
     One possible way to obtain these certificates is by extracting them from the API endpoint and the default ingress controller, but a newly created certificate is also valid as long as it is a wildcard certificate.
+
+    The API endpoint certificate is not required if that endpoint is not public.
 
     The API endpoint certificate components can be extracted by running the following command.  The command generates the files __tls.crt__ and __tls.key__.
 
@@ -427,7 +435,7 @@ Each set contains two certificates:
         tls.crt
         tls.key
 
-    To build the PKCS12 (PFX) file required by the Application Gateway use the following command. The password requested by the command is used to encrypt the resulting _api-jupiter.pfx_ file, and must be assigned to the variable api_cert_passwd:
+    To build the PKCS12 (PFX) file required by the Application Gateway use the following command. The password requested by the command is used to encrypt the resulting _api-cert.pfx_ file, and must be assigned to the variable api_cert_passwd:
 
         $ openssl pkcs12 -export -out api-cert.pfx -inkey tls.key -in tls.crt
         Enter Export Password:
@@ -447,13 +455,135 @@ Each set contains two certificates:
 
    The terraform template expects to find the API endpoint PKCS12 certificate in a file called __api-cert.pfx__ and the PKCS12 certificate for application secure routes in a file called __apps-cert.pfx__, both in the directory __Terraform/AppGateway__.
    
-* The public x509 certificate of the certification authority (CA) signing the certificate used by the Openshift ingress controller.- This certificate must be extracted from the cluster,
+* The public x509 certificate of the certification authority (CA) used to sign the certificate served by the API endpoint and Openshift ingress controller.- This certificate is used to verify the authenticity of the x509 certificate shown by the API endpoint or the ingress controller when an encrypted connection is stablished between the application gateway and the API endpoint or the ingress controller. 
 
+    This certificate must be extracted from the OCP cluster. Here the openssl tool will be used to demonstrate a possible way to obtain these certificates.
 
+    To obtain the CA certificate from the API endpoint use a command like the following.  This certificate is not required if the API endpoint is not public. The output will contain, amont other information, a certificate chain, each certificate is enclosed between the lines **-----BEGIN CERTIFICATE-----** and **-----END CERTIFICATE-----**:
 
+        $ echo |openssl s_client -showcerts -connect api.jupiter.example.com:6443
+        ...
+         1 s:OU = openshift, CN = kube-apiserver-lb-signer
+           i:OU = openshift, CN = kube-apiserver-lb-signer
+        -----BEGIN CERTIFICATE-----
+        MIIDMjCCAhqgAwIBAgIISzOKW4LZ2kIwDQYJKoZIhvcNAQELBQAwNzESMBAGA1UE
+        CxMJb3BlbnNoaWZ0MSEwHwYDVQQDExhrdWJlLWFwaXNlcnZlci1sYi1zaWduZXIw
+        ...
+        HYU2RTQxsBRlL016bi8q57oMn0S8/yMRYTRTu+CWQrZvI31+FaSBB2kvHoXvjtxm
+        JtOIcSESjVbTWTeNwAj5BE9FHvH44FjsVb49kaLTj5bdsYMbrxaoW5IpPKIIHKyx
+        8GJ8frRz
+        -----END CERTIFICATE-----
+
+    Copy the certificate prefixed with the CN=kube-apiserver-lb-signer, copy all the text including the lines **-----BEGIN CERTIFICATE-----** and **-----END CERTIFICATE-----**, and paste it into a file called **api-root-CA.cer**:
+
+        $ echo "-----BEGIN CERTIFICATE-----
+        > MIIDMjCCAhqgAwIBAgIISzOKW4LZ2kIwDQYJKoZIhvcNAQELBQAwNzESMBAGA1UE
+        > CxMJb3BlbnNoaWZ0MSEwHwYDVQQDExhrdWJlLWFwaXNlcnZlci1sYi1zaWduZXIw
+        ...
+        > HYU2RTQxsBRlL016bi8q57oMn0S8/yMRYTRTu+CWQrZvI31+FaSBB2kvHoXvjtxm
+        > JtOIcSESjVbTWTeNwAj5BE9FHvH44FjsVb49kaLTj5bdsYMbrxaoW5IpPKIIHKyx
+        > 8GJ8frRz
+        > -----END CERTIFICATE-----" > api-root-CA.cer
+
+    The certificate file can be verified with the following command:
+
+        $ openssl x509 -in api-root-CA.cer -text -noout
+
+    To obtain the CA certificate from the ingress controller use the following command.  This certicate is always required.
+
+        $ echo |openssl s_client -showcerts -connect console-openshift-console.apps.jupiter.example.com:443
+        ...
+         1 s:CN = ingress-operator@1641392714
+           i:CN = ingress-operator@1641392714
+        -----BEGIN CERTIFICATE-----
+        MIIDDDCCAfSgAwIBAgIBATANBgkqhkiG9w0BAQsFADAmMSQwIgYDVQQDDBtpbmdy
+        ZXNzLW9wZXJhdG9yQDE2NDEzOTI3MTQwHhcNMjIwMTA1MTQyNTEzWhcNMjQwMTA1
+        ...
+        Zw4CXTUlIpqApGMF5YIn+3GX9t1+9fWIRjmz8P6p+9rw6o5IhAt5DnL9wFGf1qzD
+        Zps4Hd8Evfl+byNHgijH2g==
+        -----END CERTIFICATE-----
+
+    Copy the certificate and paste it into a file called **apps-root-CA.cer**:
+
+        $ echo "-----BEGIN CERTIFICATE-----
+        MIIDDDCCAfSgAwIBAgIBATANBgkqhkiG9w0BAQsFADAmMSQwIgYDVQQDDBtpbmdy
+        ZXNzLW9wZXJhdG9yQDE2NDEzOTI3MTQwHhcNMjIwMTA1MTQyNTEzWhcNMjQwMTA1
+        ...
+        Zw4CXTUlIpqApGMF5YIn+3GX9t1+9fWIRjmz8P6p+9rw6o5IhAt5DnL9wFGf1qzD
+        Zps4Hd8Evfl+byNHgijH2g==
+        -----END CERTIFICATE-----" > apps-root-CA.cer
+
+    The certificate can be verified with the following command:
+
+        $ openssl x509 -in apps-root-CA.cer -text -noout
+
+The terraform template expects to find the CA cert for the API endpoint, if required, in a file called **api-root-CA.cer**, and the CA cert for the ingress controller in a file called **apps-root-CA.cer** in the directory __Terraform/AppGateway__.
+
+A complete variables file example looks like this:
+```
+$ cat AppGateway_vars
+publish_api = true
+api_lb_ip = "10.0.1.4"
+apps_lb_ip = "10.0.2.8"
+api_cert_passwd = "l3l#ah91""
+apps_cert_passwd = "er4a9$C""
+ssl_listener_hostnames = [ "httpd-example-caprice", 
+                          "oauth-openshift",
+                          "console-openshift-console",
+                          "grafana-openshift-monitoring",
+                          "prometheus-k8s-openshift-monitoring",
+                        ]
+cluster_domain = "jupiter.example.com"
+```
+And the folder __Terraform/AppGateway__ contains:
+```
+$ ls -1 Terraform/AppGateway/
+api-cert.pfx
+api-root-CA.cer
+AppGateway_input-vars.tf
+AppGateway-main.tf
+AppGateway_vars
+apps-cert.pfx
+apps-root-CA.cer
+```
+When the variables are defined and the certificate files are in place the Application Gateway can be deployed with the command:
+```
+$ terraform apply -var-file AppGateway_vars
+```
+The deployment will take a couple minutes, but it could take a little longer before the health probes verify that the banckend pools can receive requests.
+
+### Accessing the Openshift Cluster through the Application Gateway
+When the Application Gateway is deployed, the Openshift cluster can be accessed normally using the external DNS domains that the certificates are valid for.  
+
+For example if the API endpoint is public and the certificate is valid for the DNS name api.jupiter.example.com, the command to log into the cluster as the kubeadmin user would be:
+```
+$ oc login -u kubeadmin https://api.jupiter.example.com:6443
+```
+And if the wildcard certificate is valid for the domain *.apps.jupiter.example.com the cluster web console can be accessed a thttps://console-openshift-console.apps.jupiter.example.com
+
+To be able to connect to these URLs and to the cluster in general, the DNS configuration in the client must be able to resolve the names api.jupiter.example.com and any hostname associated with an application route, be it secure or not.  All these DNS records must resolve to the public IP of the Application Gateway, to find out the value of that IP run the following command in the directory __Terraform/AppGateway__:
+```
+$ terraform output frontend_pub_ip
+"20.97.425.13"
+```
+A simple configuration example using dnsmasq is shown in section [Configuring DNS resolution with dnsmasq](#configuring-dns-resolution-with-dnsmasq)
+
+### Updating the Configuration
+The Application Gateway configuration can be updated after deployment using the same terraform template that installs it.  Some examples that require updating the configuration are:
+* Publishing or unpublishing the API endpoint
+* Adding or removing new application routes
+* Changing the PKCS12 or CA certificates
+
+To update the configuration simply update the variables in the existing file, or create a new variables file, update the certificate files if needed, and run terraform command again:
+
+```
+$ terraform apply -var-file new_AppGateway_vars
+```
+Terraform will detect the changes and modify only the resources that are affected by these changes.
 
 ## Publishing TLS Routes via the Application Gateway
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
 @#Why use a map instead of a set?  To avoid rebuilding a lot of the app gateway if the list is reordered alphabetically#@
 
 ## Configuring DNS resolution with dnsmasq
+

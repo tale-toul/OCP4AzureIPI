@@ -3,13 +3,13 @@
 #Private IP of the private load balancer for API access 
 variable "api_lb_ip" {
   type = string
-  description = "Private IP of the private load balancer used for API access" 
+  description = "Private IP of the internal load balancer used for API access" 
 }
 
 #Private IP of the private load balancer for application access 
 variable "apps_lb_ip" {
   type = string
-  description = "Private IP of the private load balancer used for application access" 
+  description = "Private IP of the internal load balancer used for application access" 
 }
 
 #Password to decrypt PKCS12 certificate for API listener
