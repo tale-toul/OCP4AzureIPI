@@ -21,13 +21,13 @@ resource "random_string" "strand" {
 
 #Resource group
 resource "azurerm_resource_group" "resogroup" {
-  name     = "ocp4-resogroup-${local.suffix}"
+  name     = "${var.cluster_name}-ocp4-${local.suffix}"
   location = var.region_name
 }
 
 #VNet 
 resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-${local.suffix}"
+  name                = "${var.cluster_name}-${local.suffix}"
   resource_group_name = azurerm_resource_group.resogroup.name
   location            = azurerm_resource_group.resogroup.location
   address_space       = ["10.0.0.0/16"]
@@ -35,14 +35,14 @@ resource "azurerm_virtual_network" "vnet" {
 
 #Subnets
 resource "azurerm_subnet" "masters" {
-  name = "masters-${local.suffix}"
+  name = "${var.cluster_name}-masters-${local.suffix}"
   resource_group_name = azurerm_resource_group.resogroup.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes = ["10.0.1.0/24"]
   }
 
 resource "azurerm_subnet" "workers" {
-  name = "workers-${local.suffix}"
+  name = "${var.cluster_name}-workers-${local.suffix}"
   resource_group_name = azurerm_resource_group.resogroup.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes = ["10.0.2.0/24"]
@@ -50,7 +50,7 @@ resource "azurerm_subnet" "workers" {
 
 #Network security groups
 resource "azurerm_network_security_group" "nsg-masters" {
-  name = "nsg-masters-${local.suffix}"
+  name = "${var.cluster_name}-masters-${local.suffix}"
   location            = azurerm_resource_group.resogroup.location
   resource_group_name = azurerm_resource_group.resogroup.name
 
@@ -80,7 +80,7 @@ resource "azurerm_network_security_group" "nsg-masters" {
 }
 
 resource "azurerm_network_security_group" "nsg-workers" {
-  name = "nsg-workers-${local.suffix}"
+  name = "${var.cluster_name}-workers-${local.suffix}"
   location            = azurerm_resource_group.resogroup.location
   resource_group_name = azurerm_resource_group.resogroup.name
 

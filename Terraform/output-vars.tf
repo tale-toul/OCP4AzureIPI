@@ -25,6 +25,11 @@ output "bastion_public_ip" {
   description = "Public IP address assigned to the bastion host"
 }
 
+output "cluster_name" {
+  value = var.cluster_name
+  description = "This name is used as part of the name of some resource and will be assigned to the OCP cluster" 
+}
+
 output "region_name" {
   value = var.region_name
   description = "Azure region to create resources in"

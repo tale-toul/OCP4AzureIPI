@@ -2,10 +2,12 @@
 
 ## Table of Contents
 * [Introduction](#introduction)
+* [Prerequisites](#prerequisites)
+  * [Terraform installation](#terraform-installation)
+  * [Creating a Service Principal ](#creating-a-service-principal) 
 * [Outbound traffic configuration](#outbound-traffic-configuration)
 * [Cluster deployment](#cluster-deployment)
   * [Create the infrastructure with Terraform](#create-the-infrastructure-with-terraform)
-    * [Terraform installation](#terraform-installation)
     * [Terraform initialization](#terraform-initialization)
     * [Login into Azure](#login-into-azure)
     * [Variables definition](#variables-definition)
@@ -14,7 +16,7 @@
 * [Bastion infrastructure](#bastion-infrastructure)
   * [Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)
   * [Destroying the bastion infrastructure](#destroying-the-bastion-infrastructure)
-* [Set up the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
+* [Prepare the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
 * [Cluster Decommission Instructions](#cluster-decommission-instructions)
 * [Accessing a private OpenShift Cluster from The Internet](#accessing-a-private-openshift-cluster-from-the-internet)
@@ -27,7 +29,15 @@
 
 ## Introduction
 
-The instructions and code in this repository can be used as an example to deploy an Openshift 4 cluster using the IPI installer in Azure on an existing VNet.  The VNet and related Azure resources required to deploy the OCP cluster are created using terraform. 
+The instructions and code in this repository can be used as an example to deploy an Openshift 4 cluster on a pre existing VNet in Azure.  The installer used here is the IPI installer.
+
+The Openshift cluster deployed using this repository can be publc or private:
+* A public cluster is fully accessible from the Internet.  
+* A private cluster however is not accessible from outside the VNet where it is created, unless additional configurations are put in place to allow clients to connect from other VNets or the Internet at large.  This repository provides an [example of such configuration](#accessing-a-private-openshift-cluster-from-the-internet) using an Application Gateway to turn the private cluster, or parts of it public.
+
+    Why create a private cluster and then make it public if it can more easily be installed as public from the beginning.  Several reasong may exist: Hidding the complex DNS domain used by the cluster and instead publish a simpler one (myapp.apps.cluster1.example.com vs myapp.example.com); Limiting the number of public applications to a subset of the all applications running in the cluster; Keeping the API endpoint private; Keeping the cluster private until it is fully configured and ready for use; Hidding a multicluster infrastructure behind a single point of access; etc.
+
+The VNet and related Azure resources required to deploy the OCP cluster are created using terraform. 
 The OCP cluster can be [public](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-vnet.html), that is accessible from Intenet; or [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html) only accessible from the VNet where it is deployed.
 
 The Azure resources required to deploy the Openshift 4 cluster is an existing VNet are:
@@ -37,7 +47,7 @@ The Azure resources required to deploy the Openshift 4 cluster is an existing VN
 * Network security groups.- One for each of the above subnets with its own security rules.
 * Resources and configuration for the oubound network traffic from the cluster nodes to the Internet.- The requirement for these resources depends on the value of the variable [outboundType](#outbound-traffic-configuration) in the install-config.yaml file.
 
-These resources are usually created by the IPI installer, to let it know that they already exist and should not be created during cluster intallation the following variables must be defined in the __platform.azure__ section in the install-config.yaml file:
+These resources are usually created by the IPI installer, to make it aware that they already exist and should not be created during cluster intallation the following variables must be defined in the __platform.azure__ section in the install-config.yaml file:
 
 * networkResourceGroupName.- Contains the name of the resource group where the previously mentioned, user provided network resources exist.
 * virtualNetwork.- The name of the VNet to be used
@@ -56,27 +66,15 @@ platform:
     outboundType: Loadbalancer
 ...
 ```
-## Outbound traffic configuration
-The network resources and configuration allowing the cluster nodes to connect to the Internet (outbound traffic) depend on the value of the variable __outboundType__ in the install-config.yaml file. This configuration is independent from that of the inbound cluster traffic, whether this is a public or private cluster.
+## Prerequisites
+Before attempting to deploy the Openshift cluster make sure to fulfill the following prerequisites:
+* A public DNS zone must exist in Azure and the account used to deploy the cluster must have permissions to create records in it. [More details](#https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-network-config_installing-azure-account)
+* The default limits in a newly created Azure account are too low to deploy an Openshift cluster, make sure this limits have been extended. [More details](#https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-limits_installing-azure-account)
+* Create a service principal with the roles of _Owner_ and _User Access Administrator_, and use it to deploy the Openshift cluster. [Creating a Service Principal](#creating-a-service-principal)
+* A working terraform installation in the host where the infrastructure is going to be deployed from. [Terraform installation](#terraform-installation)
+* A working ansible installation in the host where the infrastructure is going to be deployed from.
 
-The __outboundType__ variable can take only two possible values: Loadbalancer and UserDefinedRouting:
-* **LoadBalancer**.- The IPI installer will create an outbound rule in the public load balancer to allow outgoing connections from the nodes to the Internet.  If the the cluster is public, the load balancer is used for routing both inbound traffic from the Internet to the nodes and outbound traffic from the nodes to the Internet.  If the cluster is private there is no inbound traffic from the Internet to the nodes, but the load balancer will still be created and will only be used for outbound traffic from the nodes to the Internet.
-* **UserDefinedRouting**.- The necessary infrastructure and configuration to allow the cluster nodes to connect to the internet must be in place before running the IPI installer, different options exit in Azure for this: NAT gateway; Azure firewall; Proxy server; etc.  In this repository the terraform template creates a NAT gateway if the **outbound_type** variable contains the value _UserDefinedRouting_.  
-
-When outboundType = UserDefinedRouting, a load balancer is still created but contains no frontend IP address, load balancing rules or outbound rules, so it serves no purpose.  A fully functional internal load balancer is always created for access to the API service and applications only from inside the VNet.
-
-## Cluster deployment
-
-The deployment process consists of the following points:
-
-* [Create the infrastructure components in Azure](#create-the-infrastructure-with-terraform).- The VNet and other components are created using terraform.
-* [Set up installation environment](#set-up-the-bastion-host-to-install-openshift).- The bastion host is prepared to lauch the openshift installer from it.
-* [Run the Openshift installer](#ocp-cluster-deployment)
-
-### Create the infrastructure with Terraform
-Terraform is used to create in Azure the network infrastructure resources required to deploy the Openshift 4 cluster into.  The [terraform Azure provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs) is used.  
-
-#### Terraform installation
+### Terraform installation
 
 The installation of terraform is as simple as downloading a zip compiled binary package for your operating system and architecture from:
 
@@ -101,6 +99,42 @@ Check that it is working:
 ```shell
  # terraform --version
 ```
+### Creating a Service Principal 
+For more details visit the [official Openshift documentation](#https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-service-principal_installing-azure-account)
+
+This instruction use the _az_ command line tool.
+* Create the service principal and assing it the _Contributor_ role and a name, in the example *ocp_install_sp*. Save the _appId_ and password values, they are needed in following steps:
+
+        $ az ad sp create-for-rbac --role Contributor --name ocp_install_sp
+
+ 
+* Assign the _User Access Administrator_ role to the service principal just created. Replace \<appId\> with the value obtained in the first command:
+
+        $ az role assignment create --role "User Access Administrator" \
+    --assignee-object-id $(az ad sp list --filter "appId eq '<appId>'" \ 
+       | jq '.[0].objectId' -r)
+
+
+## Outbound traffic configuration
+The network resources and configuration allowing the cluster nodes to connect to the Internet (outbound traffic) depend on the value of the variable __outboundType__ in the install-config.yaml file. This configuration is independent from that of the inbound cluster traffic, whether this is a public or private cluster.
+
+The __outboundType__ variable can take only two possible values: Loadbalancer and UserDefinedRouting:
+* **LoadBalancer**.- The IPI installer will create an outbound rule in the public load balancer to allow outgoing connections from the nodes to the Internet.  If the the cluster is public, the load balancer is used for routing both inbound traffic from the Internet to the nodes and outbound traffic from the nodes to the Internet.  If the cluster is private there is no inbound traffic from the Internet to the nodes, but the load balancer will still be created and will only be used for outbound traffic from the nodes to the Internet.
+* **UserDefinedRouting**.- The necessary infrastructure and configuration to allow the cluster nodes to connect to the internet must be in place before running the IPI installer, different options exit in Azure for this: NAT gateway; Azure firewall; Proxy server; etc.  In this repository the terraform template creates a NAT gateway if the **outbound_type** variable contains the value _UserDefinedRouting_.  
+
+When outboundType = UserDefinedRouting, a load balancer is still created but contains no frontend IP address, load balancing rules or outbound rules, so it serves no purpose.  A fully functional internal load balancer is always created for access to the API service and applications only from inside the VNet.
+
+## Cluster deployment
+
+The deployment process consists of the following points:
+
+* [Create the infrastructure components in Azure](#create-the-infrastructure-with-terraform).- The VNet and other components are created using terraform.
+* [Set up installation environment](#set-up-the-bastion-host-to-install-openshift).- The bastion host is prepared to lauch the openshift installer from it.
+* [Run the Openshift installer](#ocp-cluster-deployment)
+
+### Create the infrastructure with Terraform
+Terraform is used to create in Azure the network infrastructure resources required to deploy the Openshift 4 cluster into.  The [terraform Azure provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs) is used.  
+
 #### Terraform initialization
 
 Check for any updates and initialize terraform plugins and modules:
@@ -136,7 +170,7 @@ Check for any updates and initialize terraform plugins and modules:
 ```
 
 #### Login into Azure
-Before running terraform to create resources a user with enough permissions must be authenticated with Azure, there are several options to perform this authentication as explained in the terraform [documentation](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/service_principal_client_certificate) for the Azure resource provider.  The simplest authentication method uses the Azure CLI:
+Before running terraform to create resources, a user with enough permissions must be authenticated with Azure, there are several options to perform this authentication as explained in the terraform [documentation](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/service_principal_client_certificate) for the Azure resource provider.  The simplest authentication method uses the Azure CLI:
 
 * Install __az__ [client](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli). On [RHEL]((https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=dnf#install))
 
@@ -147,20 +181,25 @@ $ az login
 Once successfully loged in, the file __~/.azure/azureProfile.json__ is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  This credentials are valid for the following days so no further authentication with Azure is required for a while.
 
 #### Variables definition
-Some of the resources created by terraform can be adjusted via the use of variables defined in the file Terrafomr/input-vars.tf:
-* **region_name**.- Contains the short name of the Azure region where the resources, and the Openshift cluster, will be created. The short name of the regions can be obtained from the __Name__ column in the output of the command `az account list-locations -o table`
+Some of the resources created by terraform can be adjusted via the use of variables:
+* **cluster name**.- A unique name for the Openshift cluster.  Does not have a default values so it must be specified everytime the _terraform_ command is executed. 
+```
+cluster_name: jupiter
+```
+
+* **region_name**.- Contains the short name of the Azure region where the resources, and the Openshift cluster, will be created. The short name of the regions can be obtained from the __Name__ column in the output of the command `az account list-locations -o table`.  Does not have a default values so it must be specified everytime the _terraform_ command is executed.
 ```
 region_name: "francecentral"
 ```
-* **create_bastion**.- Boolean used to determine if the bastion infrastructure will be created or not (defaults to true, the bastion will be created).
+* **create_bastion**.- Boolean used to determine if the bastion infrastructure will be created or not (defaults to true).
 ```
 create_bastion: false
 ```
-**cluster_scope**.- Used to define if the cluster will be public (accessible from the Internet) or private (not accessible from the Internet).  Can contain only two values: "public" or "private", default is public
+* **cluster_scope**.- Used to define if the cluster will be public (accessible from the Internet) or private (not accessible from the Internet).  Can contain only two values: _public_ or _private_, default is _public_
 ```
 cluster_scope: public
 ```
-**outbound_type**.- Defines the networking method that cluster nodes use to connect to the Internet (outbound traffic).  Can have the values: _LoadBalancer_, the installer will create a load balancer with outbound rules, even if the cluster scope is private; and _UserDefinedRouting_, the outbound rules in the load balancer will not be created and the user must provide the outbound configuration, for example a NAT gateway".  Defaults to _LoadBalancer_.
+* **outbound_type**.- Defines the networking method that cluster nodes use to connect to the Internet (outbound traffic).  Can have the values: _LoadBalancer_, the installer will create a load balancer with outbound rules, even if the cluster scope is private; and _UserDefinedRouting_, the outbound rules in the load balancer will not be created and the user must provide the outbound configuration, for example a NAT gateway".  Defaults to _LoadBalancer_.
 ```
 outbound_type: LoadBalancer
 ```
@@ -173,7 +212,7 @@ Terraform expects a file containing the public ssh key in a file at __Terraform/
 ```
 $ ssh-keygen -o -t rsa -f ocp-install -N "" -b 4096
 ```
-The previous command will generate two files: ocp-install containing the private key and ocp-install.pub containing the public key.  The private key is not protected y a passphrase.
+The previous command will generate two files: ocp-install containing the private key and ocp-install.pub containing the public key.  The private key is not protected by a passphrase.
 
 #### Deploy the infrastructure with Terraform
 To create the infrastructure run the __terraform apply__ command.  Enter "yes" at the prompt:
@@ -201,15 +240,15 @@ Save the command used to create the infrastructure for future reference.  The sa
 $ echo "!!" > terraform_apply.txt
 ```  
 ## Bastion Infrastructure
-Reference documentation on how to create the VM with terraform in Azure [1](https://docs.microsoft.com/en-us/azure/developer/terraform/create-linux-virtual-machine-with-infrastructure) and [2](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/linux_virtual_machine)
+Reference documentation on how to create the VM with terraform in Azure: \[[1](https://docs.microsoft.com/en-us/azure/developer/terraform/create-linux-virtual-machine-with-infrastructure)\] and \[[2](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/linux_virtual_machine)\]
 
-By default a bastion host is created in its own subnet and gets assigned a network security rule that allows ssh connections into it.  The bastion host is intended to run the OCP 4 installer from it, and once the OCP cluster is installed, it can be used to access the cluster using the __oc__ cli.
+In the default configuration, with variable `create_bastion=true` a bastion host is created in its own subnet and gets assigned a network security rule that allows ssh connections into it.  It is intended to run the OCP 4 installer from it, and once the OCP cluster is installed it can be used to access the cluster using the __oc__ cli.
 
-The bastion infrastructure is created from a module in terraform so it can be conditionally created and easily destroyed once it is not needed anymore.
+The bastion infrastructure is created from a module in terraform so it can be [conditionally created](#conditionally-creating-the-bastion-infrastructure) and [easily destroyed](#destroying-the-bastion-infrastructure) once it is not needed anymore.
 
-The bastion VM gets both public and private IP addresses assigned to the single NIC that it gets.  The network security group is directly associated with the NIC.
+The bastion VM gets both public and private IP addresses assigned to its single NIC. The network security group is directly associated with this NIC.
 
-The disk image used is the latest version of a RHEL 8.  The same definition can be used irrespective of the region where the resources will be deployed.  The az cli commands used to collect the information for the definition can be found [here](https://docs.microsoft.com/en-us/cli/azure/vm/image?view=azure-cli-latest), for example:
+The operating system disk image used in the bation VM is the latest version of RHEL 8.  The same definition can be used irrespective of the region where the resources will be deployed.  The az cli commands used to collect the information for the definition can be found [here](https://docs.microsoft.com/en-us/cli/azure/vm/image?view=azure-cli-latest), for example:
 
 ```
 $ az vm image list-publishers
@@ -245,23 +284,19 @@ __WARNING__ If the __-target__ option is not used, terraform will delete all res
 
 The option `-target module.<name>` is used to affect only a particular module in the terraform command
 
-## Set up the bastion host to install Openshift
+## Prepare the bastion host to install Openshift
 Ansible is used to prepare the bastion host so the Openshift 4 cluster installation can be run from it.  Before running the playbook some prerequisites must be fullfilled:
 
-Define the following variables in the file __Ansible/group_vars/all/cluster-vars__:
-* Cluster name.- A unique name for the Openshift cluster, assign the name to the variable **cluster_name**. 
-```
-cluster_name: jupiter
-```
-* DNS base domain.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a public cluster, this DNS domain must exist in an Azure resource group before the cluser can be deployed.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as __<cluster name>.<>base domain>__, so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
+Define the following variables in the file **Ansible/group_vars/all/cluster-vars**:
+* **DNS base domain**.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a public cluster, this DNS domain must exist in an Azure resource group before the cluser can be deployed.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as __< cluster name >.< base domain >__, so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
 ```
 base_domain: example.com
 ```
-* Base domain resource group.- The Azure resource group name where the base domain exists.  Assing the name to the variable **base_domain_resource_group**
+* **Base domain resource group**.- The Azure resource group name where the base domain exists.  Assing the name to the variable **base_domain_resource_group**
 ```
 base_domain_resource_group: waawk-dns
 ```
-* Number of compute nodes.- The number of compute nodes that the installer will create. Assing the number to the variable **compute_replicas**.
+* **Number of compute nodes**.- The number of compute nodes that the installer will create. Assing the number to the variable **compute_replicas**.
 ```
 compute_replicas: 3
 ```
@@ -269,7 +304,7 @@ Download the Pull secret, Openshift installer and oc cli from [here](https://clo
 
 The inventory file for ansible containing the [bastion] group is created by the ansible playbook itself so there is no need to create this file.
 
-The same ssh public key used for the bastion host is the one to be injected to the Openshift cluster nodes, so here again there is no need to provide a specific one.
+The same ssh public key used for the bastion host is injected to the Openshift cluster nodes, there is no need to provide a specific one.
 
 Run the playbook:
 ```
@@ -293,13 +328,13 @@ jupiter/  oc  openshift-install
 ```
 The directory contains the configuration file __install-config.yaml__, review and modify the file as required.
 
-Before running the installer it is a good practice to backup the install-config.yaml because the installer removes it as part of the installation process, and also run the installer in a tmux session so the terminal doesn't get blocked for around 40 minutes, which is the time the installation needs to complete.
+Before running the installer backup the install-config.yaml because the installer removes it as part of the installation process, and also run the installer in a tmux session so the terminal doesn't get blocked for around 40 minutes, which is the time the installation needs to complete.
 
 ```
 $ cp jupiter/install-config.yaml .
 $ tmux
 ```
-Run the Openshift installer, it will prompt for the Azure credentials requires to create all resources, after that the installer starts creating the cluster components:
+Run the Openshift installer, it will prompt for the Azure credentials required to create all resources, after that the installer starts creating the cluster components:
 ```
 $ ./openshift-install create cluster --dir jupiter
 ? azure subscription id 9cf87ea-3bf1-4b1a-8cc3-2aabe4cc8b98
@@ -310,6 +345,12 @@ INFO Saving user credentials to "/home/azureuser/.azure/osServicePrincipal.json"
 INFO Credentials loaded from file "/home/azureuser/.azure/osServicePrincipal.json" 
 INFO Consuming Install Config from target directory 
 INFO Creating infrastructure resources...
+```
+Alternatively an existing _osServicePrincipal.json_ file containing the credentials can be copied to the bastion host and placed at _/home/azureuser/.azure/osServicePrincipal.json_.  In this case the Openshift installer will not ask for the credentials and use the file instead.
+
+The installation process will take more than 40 minutes.  The progress can be followed by tailing the *.openshift_install.log* :
+```
+$ tail -f OCP4/jupiter/.openshift_install.log
 ```
 
 ## Cluster Decommission Instructions
@@ -630,11 +671,15 @@ The resolution should be working now:
 ```
 $ dig +short api.jupiter.example.com
 20.97.425.13
-$ dig +short www.apps.lana.azurecluster.sureshot.pw
-20.97.425.13
 ```
 
 ## Publishing TLS Routes via the Application Gateway
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
-@#Why use a map instead of a set?  To avoid rebuilding a lot of the app gateway if the list is reordered alphabetically#@
+@#Why use a map instead of a set for hostname lists?  To avoid rebuilding a lot of the app gateway if the list is reordered alphabetically, and to allow defining different external and internal domains#@
 @#Using let's encrypt to add a valid certificate to the Application Gateway#@
+@#cluster_name variable should be moved from ansible to Terraform, so it can be use to name some resources, mainly the resource group@#
+YOVKvAjOMHKZnWVj7MOY
+@#How to create a service principal#@
+@#Pre requisites section: Terraform, DNS public zone in Azure (for public clusters); service principal#@
+    https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal
+    https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html

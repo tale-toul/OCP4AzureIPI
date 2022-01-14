@@ -1,4 +1,10 @@
 #VARIABLES
+
+variable "cluster_name" {
+  description = "This name is used as part of the name of some resource and will be assigned to the OCP cluster" 
+  type = string
+}
+
 variable "region_name" {
   description = "Azure Region to deploy resources"
   type = string
