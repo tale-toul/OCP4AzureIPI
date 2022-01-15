@@ -33,7 +33,7 @@ The instructions and code in this repository can be used as an example to deploy
 
 The Openshift cluster deployed using this repository can be publc or private:
 * A public cluster is fully accessible from the Internet.  
-* A private cluster however is not accessible from outside the VNet where it is created, unless additional configurations are put in place to allow clients to connect from other VNets or the Internet at large.  This repository provides an [example of such configuration](#accessing-a-private-openshift-cluster-from-the-internet) using an Application Gateway to turn the private cluster, or parts of it public.
+* A private cluster is not accessible from outside the VNet where it is created unless additional configurations are put in place to allow clients to connect from other VNets or the Internet at large.  This repository provides an [example of such configuration](#accessing-a-private-openshift-cluster-from-the-internet) using an Application Gateway to turn the private cluster, or parts of it public.
 
     Why create a private cluster and then make it public if it can more easily be installed as public from the beginning.  Several reasong may exist: Hidding the complex DNS domain used by the cluster and instead publish a simpler one (myapp.apps.cluster1.example.com vs myapp.example.com); Limiting the number of public applications to a subset of the all applications running in the cluster; Keeping the API endpoint private; Keeping the cluster private until it is fully configured and ready for use; Hidding a multicluster infrastructure behind a single point of access; etc.
 
@@ -111,8 +111,8 @@ This instruction use the _az_ command line tool.
 * Assign the _User Access Administrator_ role to the service principal just created. Replace \<appId\> with the value obtained in the first command:
 
         $ az role assignment create --role "User Access Administrator" \
-    --assignee-object-id $(az ad sp list --filter "appId eq '<appId>'" \ 
-       | jq '.[0].objectId' -r)
+        --assignee-object-id $(az ad sp list --filter "appId eq '<appId>'" \ 
+        | jq '.[0].objectId' -r)
 
 
 ## Outbound traffic configuration
@@ -288,7 +288,7 @@ The option `-target module.<name>` is used to affect only a particular module in
 Ansible is used to prepare the bastion host so the Openshift 4 cluster installation can be run from it.  Before running the playbook some prerequisites must be fullfilled:
 
 Define the following variables in the file **Ansible/group_vars/all/cluster-vars**:
-* **DNS base domain**.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a public cluster, this DNS domain must exist in an Azure resource group before the cluser can be deployed.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as __< cluster name >.< base domain >__, so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
+* **DNS base domain**.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a public cluster, this DNS domain must exist in an Azure resource group before the cluser can be deployed.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as `<cluster name>.<base domain>` so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
 ```
 base_domain: example.com
 ```
@@ -302,7 +302,7 @@ compute_replicas: 3
 ```
 Download the Pull secret, Openshift installer and oc cli from [here](https://cloud.redhat.com/openshift/install), uncompress the installer and oc cli, and copy all these files to __Ansible/ocp_files/__
 
-The inventory file for ansible containing the [bastion] group is created by the ansible playbook itself so there is no need to create this file.
+The inventory file for ansible containing the _[bastion]_ group is created by the ansible playbook itself so there is no need to create this file.
 
 The same ssh public key used for the bastion host is injected to the Openshift cluster nodes, there is no need to provide a specific one.
 

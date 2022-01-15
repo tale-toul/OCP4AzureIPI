@@ -21,7 +21,7 @@ resource "random_string" "strand" {
 
 #Resource group
 resource "azurerm_resource_group" "resogroup" {
-  name     = "${var.cluster_name}-ocp4-${local.suffix}"
+  name     = "ocp4-${var.cluster_name}-${local.suffix}"
   location = var.region_name
 }
 
