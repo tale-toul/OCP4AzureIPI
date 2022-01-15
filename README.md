@@ -19,7 +19,7 @@
 * [Prepare the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
 * [Cluster Decommission Instructions](#cluster-decommission-instructions)
-* [Accessing a private OpenShift Cluster from The Internet](#accessing-a-private-openshift-cluster-from-the-internet)
+* [Accessing a Private OpenShift Cluster from The Internet](#accessing-a-private-openshift-cluster-from-the-internet)
   * [Variables definition](#variables-definition)
   * [Application Gateway Deployment](#application-gateway-deployment)
   * [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway)
@@ -182,27 +182,39 @@ Once successfully loged in, the file __~/.azure/azureProfile.json__ is created c
 
 #### Variables definition
 Some of the resources created by terraform can be adjusted via the use of variables:
-* **cluster name**.- A unique name for the Openshift cluster.  Does not have a default values so it must be specified everytime the _terraform_ command is executed. 
-```
-cluster_name: jupiter
-```
+* **cluster_name**.- A unique name for the Openshift cluster.  
 
-* **region_name**.- Contains the short name of the Azure region where the resources, and the Openshift cluster, will be created. The short name of the regions can be obtained from the __Name__ column in the output of the command `az account list-locations -o table`.  Does not have a default values so it must be specified everytime the _terraform_ command is executed.
-```
-region_name: "francecentral"
-```
-* **create_bastion**.- Boolean used to determine if the bastion infrastructure will be created or not (defaults to true).
-```
-create_bastion: false
-```
-* **cluster_scope**.- Used to define if the cluster will be public (accessible from the Internet) or private (not accessible from the Internet).  Can contain only two values: _public_ or _private_, default is _public_
-```
-cluster_scope: public
-```
-* **outbound_type**.- Defines the networking method that cluster nodes use to connect to the Internet (outbound traffic).  Can have the values: _LoadBalancer_, the installer will create a load balancer with outbound rules, even if the cluster scope is private; and _UserDefinedRouting_, the outbound rules in the load balancer will not be created and the user must provide the outbound configuration, for example a NAT gateway".  Defaults to _LoadBalancer_.
-```
-outbound_type: LoadBalancer
-```
+    No default value so it must be specified everytime the _terraform_ command is executed. 
+
+        cluster_name: jupiter
+
+* **region_name**.- Contains the short name of the Azure region where the resources, and the Openshift cluster, will be created. The short name of the regions can be obtained from the __Name__ column in the output of the command `az account list-locations -o table`.  
+
+    No default value so it must be specified everytime the _terraform_ command is executed. 
+
+        region_name: "francecentral"
+
+* **create_bastion**.- Boolean used to determine if the bastion infrastructure will be created or not.
+
+    Default value **true**
+
+        create_bastion: false
+
+* **cluster_scope**.- Used to define if the cluster will be public (accessible from the Internet) or private (not accessible from the Internet).  
+
+    Possible values: _public_ or _private_. 
+
+    Default value: _public_
+
+        cluster_scope: public
+
+* **outbound_type**.- Defines the networking method that cluster nodes use to connect to the Internet (outbound traffic).  
+
+    Possible values: __LoadBalancer__, the installer will create a load balancer with outbound rules, even if the cluster scope is private; and _UserDefinedRouting_, the outbound rules in the load balancer will not be created and the user must provide the outbound configuration, for example a NAT gateway".  
+
+    Default value:_LoadBalancer_.
+
+        outbound_type: LoadBalancer
 
 #### SSH key
 Regardless of whether the the bastion infrastructure is going to be created ([Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)), an ssh key is needed to connect to the bastion VM and the OCP cluster nodes.
@@ -288,11 +300,11 @@ The option `-target module.<name>` is used to affect only a particular module in
 Ansible is used to prepare the bastion host so the Openshift 4 cluster installation can be run from it.  Before running the playbook some prerequisites must be fullfilled:
 
 Define the following variables in the file **Ansible/group_vars/all/cluster-vars**:
-* **DNS base domain**.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a public cluster, this DNS domain must exist in an Azure resource group before the cluser can be deployed.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as `<cluster name>.<base domain>` so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
+* **DNS base domain**.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a _public_ cluster, this DNS domain must exist in an Azure resource group.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as `<cluster name>.<base domain>` so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
 ```
 base_domain: example.com
 ```
-* **Base domain resource group**.- The Azure resource group name where the base domain exists.  Assing the name to the variable **base_domain_resource_group**
+* **Base domain resource group**.- The Azure resource group name where the base domain exists.  In a private cluster this variable need not be defined.  Assing the name to the variable **base_domain_resource_group**
 ```
 base_domain_resource_group: waawk-dns
 ```
@@ -352,6 +364,25 @@ The installation process will take more than 40 minutes.  The progress can be fo
 ```
 $ tail -f OCP4/jupiter/.openshift_install.log
 ```
+### Accessing the bootstrap node
+In the first stages of the installation process a bootstrap node is created.  Sometimes it maybe desired to connect to this bootstrap node to watch this part of the installation or for debugging reasons.
+
+The IPI installer creates a network security group and adds a rule to allow ssh connection to the boostrap node, however in an installation where the VNet, subnets, network security groups, etc. are provided by the user, the network security group created by the IPI installer is only applied to the bootstrap's network interface and not to the subnet where it is "connected".
+
+On the other hand, the network security group created by terraform in this repository does not contain a similar security rule allowing ssh connctions to the bootstrap host, this is to increase security, specially considering that the bootstrap node is ephemeral and will be destroyed after it serves it purpose.
+
+The bootstrap node is therefore not accessible via ssh from the Internet.
+
+It is possible to ssh into the bootstrap from the bastion host, if this was created, or from any other VM running in the same VNet:
+* Connect to the bastion host using ssh
+
+        $ ssh -i ~/.ssh/ocp_install azureuser@20.43.63.15
+
+* Get the private IP of the bootstrap node.  This can be easily found in the Azure portal for example.
+
+* Connect to the bootstrap node
+
+        $ ssh core@10.0.1.5
 
 ## Cluster Decommission Instructions
 Deleting the cluster is a multi step process:
@@ -367,8 +398,8 @@ $ terraform destroy -var region_name="germanywestcentral" -var cluster_scope="pr
 ```
 * If an [Application Gateway](#accessing-a-private-openshift-cluster-from-the-internet) has been created using the terraform module in this repository, remove it following the instruction in [this section ](#application-gateway-decommission)
 
-## Accessing a private OpenShift Cluster from The Internet
-If the Openshift cluster deployed following the instructions in this repository is private, the API and any application deployed in it are not accessible from the Internet.  This may be the desired state when the cluster is deployed, but at a later time when the cluster is fully set up and production applications are deployed and ready, it is possible that a particular set of applications or even the API are expected to be publicly available.  
+## Accessing a Private OpenShift Cluster from The Internet
+If the Openshift cluster deployed following the instructions in this repository is private, the API and any application deployed in it are not accessible from the Internet.  This may be the desired state right after installation, but at a later time, when the cluster is fully set up and production applications are ready, it is possible that a particular set of applications or even the API are expected to be publicly available.  
 
 There are many options to make applications and API publicly available, this repository includes a terraform module that can be used for such purpose, it can be found in the directory __Terraform/AppGateway__.  This module creates an [application gateway](https://docs.microsoft.com/en-us/azure/application-gateway/) that provides access to the applications running in the cluster and optionally to the API endpoint.
 
@@ -677,9 +708,3 @@ $ dig +short api.jupiter.example.com
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
 @#Why use a map instead of a set for hostname lists?  To avoid rebuilding a lot of the app gateway if the list is reordered alphabetically, and to allow defining different external and internal domains#@
 @#Using let's encrypt to add a valid certificate to the Application Gateway#@
-@#cluster_name variable should be moved from ansible to Terraform, so it can be use to name some resources, mainly the resource group@#
-YOVKvAjOMHKZnWVj7MOY
-@#How to create a service principal#@
-@#Pre requisites section: Terraform, DNS public zone in Azure (for public clusters); service principal#@
-    https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal
-    https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html

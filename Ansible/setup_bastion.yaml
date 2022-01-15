@@ -51,6 +51,12 @@
         state: directory
         owner: azureuser
         mode: '0750'
+    - name: Create ~/.azure directory
+      file:
+        path: .azure
+        state: directory
+        owner: azureuser
+        mode: '0700'
     - name: Render install-config jinja2 template
       template:
         src: install-config.j2
