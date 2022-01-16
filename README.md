@@ -20,7 +20,8 @@
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
 * [Cluster Decommission Instructions](#cluster-decommission-instructions)
 * [Accessing a Private OpenShift Cluster from The Internet](#accessing-a-private-openshift-cluster-from-the-internet)
-  * [Variables definition](#variables-definition)
+  * [Variables Definition](#variables-definition)
+    * [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses)
   * [Application Gateway Deployment](#application-gateway-deployment)
   * [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway)
   * [Updating the Configuration](#updating-the-configuration)
@@ -399,37 +400,14 @@ $ terraform destroy -var region_name="germanywestcentral" -var cluster_scope="pr
 * If an [Application Gateway](#accessing-a-private-openshift-cluster-from-the-internet) has been created using the terraform module in this repository, remove it following the instruction in [this section ](#application-gateway-decommission)
 
 ## Accessing a Private OpenShift Cluster from The Internet
-If the Openshift cluster deployed following the instructions in this repository is private, the API and any application deployed in it are not accessible from the Internet.  This may be the desired state right after installation, but at a later time, when the cluster is fully set up and production applications are ready, it is possible that a particular set of applications or even the API are expected to be publicly available.  
+If the Openshift cluster deployed following the instructions in this repository is private, the API and any applications deployed in it are not accessible from the Internet.  This may be the desired state right after installation, but at a later time, when the cluster is fully set up and production applications are ready, it is possible that a particular set of applications and even the API endpoint are expected to be publicly available.  
 
-There are many options to make applications and API publicly available, this repository includes a terraform module that can be used for such purpose, it can be found in the directory __Terraform/AppGateway__.  This module creates an [application gateway](https://docs.microsoft.com/en-us/azure/application-gateway/) that provides access to the applications running in the cluster, and optionally to the API endpoint.
+There are many options to make the applications and API endpoint publicly available, this repository includes a terraform module that can be used for such purpose, it can be found in the directory __Terraform/AppGateway__.  This module creates an [Azure application gateway](https://docs.microsoft.com/en-us/azure/application-gateway/) that provides access to the applications running in the cluster, and optionally to the API endpoint.
 
-To successfully deploy the Application Gateway using the terraform template in this repository, the Azure infrastructure needs also to be deployed using the terraform templates in this repository, and the Openshift cluster must be already running.
+To successfully deploy the Application Gateway using the terraform template in this repository, the Azure infrastructure must also be deployed using the terraform templates in this repository, and the Openshift cluster must be already running.
 
-### Variables definition
-The following variables are used to pass information to terraform so the Application Gateway can be created and configured.  Add the variables definition to a file in the __Terraform/AppGateway__ directory, for example **AppGateway_vars**, and later call it in with the option `-var-file AppGateway_vars`.
-
-The variables *api_lb_ip* and *apps_lb_ip* described later can be obtained from the Azure portal or using the following commands:
-
-* Get the list of load balancers in the resource group created by the IPI installer.  The LB with _internal_ in its name is the one of interest here, the other LB is not even functional in a private cluster:
-```
-$ az network lb list -g lana-l855j-rg -o table
-Location            Name                 ProvisioningState    ResourceGroup    ResourceGuid
-------------------  -------------------  -------------------  ---------------  ------------------------------------
-germanywestcentral  lana-l855j           Succeeded            lana-l855j-rg    73c41f07-886c-46f1-b4cc-007b64924ff4
-germanywestcentral  lana-l855j-internal  Succeeded            lana-l855j-rg    9a4d37c9-b139-479b-9905-e12743a3ac47
-```
-* Get the frontend IPs associated with the internal LB, the one with the name _internal-lb-ip-v4_ is the IP for the API endpoint, the one with the long string of random characters is the IP for application access:
-```
-$ az network lb frontend-ip list -g lana-l855j-rg --lb-name lana-l855j-internal -o table
-Name                              PrivateIpAddress    PrivateIpAddressVersion    PrivateIpAllocationMethod    ProvisioningState    ResourceGroup
---------------------------------  ------------------  -------------------------  ---------------------------  -------------------  ---------------
-internal-lb-ip-v4                 10.0.1.4            IPv4                       Dynamic                      Succeeded            lana-l855j-rg
-a0a66b12128ec4f33bbf3fb705e48e9e  10.0.2.8            IPv4                       Dynamic                      Succeeded            lana-l855j-rg
-```
-    Further details for the IPs can be obtained by using a command like:
-```
-$ az network lb frontend-ip show -g lana-l855j-rg --lb-name lana-l855j-internal -n internal-lb-ip-v4|jq
-```
+### Variables Definition
+The following variables are used to pass information to terraform so the Application Gateway can be created and set up.  Add the variables definition to a file in the __Terraform/AppGateway__ directory, for example **AppGateway_vars**, and later call it in with the option `-var-file AppGateway_vars`.
 
 * **publish_api**.- This boolean variable determines if the API entry point is to be published or not.  
 
@@ -437,13 +415,13 @@ $ az network lb frontend-ip show -g lana-l855j-rg --lb-name lana-l855j-internal 
 ```
 publish_api = true
 ```
-* **api_lb_ip**.- Private IP of the internal load balancer used for API access.  This variable is not required if the API endpoint is not going to be made public.  See above to learn how to obtain this IP.
+* **api_lb_ip**.- Private IP of the internal load balancer used for API access.  This variable is not required if the API endpoint is not going to be made public.  See [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses) to learn how to obtain this IP.
 
     No default value.
 ```
 api_lb_ip = "10.0.1.4"
 ```
-* **apps_lb_ip**.- Private IP of the internal load balancer used for application access.  This variable is always required.  See above to learn how to obtain this IP.
+* **apps_lb_ip**.- Private IP of the internal load balancer used for application access.  This variable is always required.  See [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses) to learn how to obtain this IP.
 
     No default value.
 ```
@@ -470,17 +448,42 @@ ssl_listener_hostnames = [ "httpd-example-caprice",
 ```
 cluster_domain = "jupiter.example.com"
 ```
+
+#### Obtaining the Load Balancers IP addresses
+The variables *api_lb_ip* and *apps_lb_ip* described in [Variables Definition](#variables-definition) can be obtained from the Azure portal or using the following commands:
+
+* Get the list of load balancers in the resource group created by the IPI installer.  The LB with _internal_ in its name is the one of interest here, the other LB is not even functional in a private cluster:
+```
+$ az network lb list -g lana-l855j-rg -o table
+Location            Name                 ProvisioningState    ResourceGroup    ResourceGuid
+------------------  -------------------  -------------------  ---------------  ------------------------------------
+germanywestcentral  lana-l855j           Succeeded            lana-l855j-rg    73c41f07-886c-46f1-b4cc-007b64924ff4
+germanywestcentral  lana-l855j-internal  Succeeded            lana-l855j-rg    9a4d37c9-b139-479b-9905-e12743a3ac47
+```
+* Get the frontend IPs associated with the internal LB, the one with the name _internal-lb-ip-v4_ is the IP for the API endpoint, the one with the long string of random characters is the IP for application access:
+```
+$ az network lb frontend-ip list -g lana-l855j-rg --lb-name lana-l855j-internal -o table
+Name                              PrivateIpAddress    PrivateIpAddressVersion    PrivateIpAllocationMethod    ProvisioningState    ResourceGroup
+--------------------------------  ------------------  -------------------------  ---------------------------  -------------------  ---------------
+internal-lb-ip-v4                 10.0.1.4            IPv4                       Dynamic                      Succeeded            lana-l855j-rg
+a0a66b12128ec4f33bbf3fb705e48e9e  10.0.2.8            IPv4                       Dynamic                      Succeeded            lana-l855j-rg
+```
+  Further details for the IPs can be obtained using a command like:
+```
+$ az network lb frontend-ip show -g lana-l855j-rg --lb-name lana-l855j-internal -n internal-lb-ip-v4|jq
+```
+
 ### Application Gateway Deployment
 
 Terraform is used to deploy the Application Gateway and some additional required components.  The commands explained in this section must be run in the directory __Terraform/AppGateway__, in the same copy of the repository that was used to deploy the infrastructure to deploy the Openshift cluster, this is because the AppGateway module consumes information generated by terraform in its previous execution.
 
 Create a file to hold the variables detailed in the previous section, for example _AppGateway_varsf_.
 
-Decide whether the API endpoint will be made public or not assigning _true_ or _false_ to the variable **publish_api**.  
+Choose whether the API endpoint will be made public or not assigning _true_ or _false_ to the variable **publish_api**.  
 
 If the API will not be public the following variables don't need to be defined: **publish_api**; **api_lb_ip**; **api_cert_passwd**.  The certificate file __api-cert.pfx__ is also not required in this case.
 
-The API endpoint can be publish or unpublish at anytime just by changing the value of the **publish_api** variable and rerunning terraform. In case of publishing the API the variables **api_lb_ip**; **api_cert_passwd** must also be defined, and the certificate file __api-cert.pfx__ put in place.
+The API endpoint can be publish or unpublish at anytime just by changing the value of the **publish_api** variable and rerunning terraform.  In case of publishing the API, the variables **api_lb_ip**; **api_cert_passwd** must be defined and the certificate file __api-cert.pfx__ must be put in place.
 
 Obtain the IP addresses to assing to **apps_lb_ip**, and to **api_lb_api** if required, example commands to get this information can be found in the section [Variables definition](#variables-definition).
 
