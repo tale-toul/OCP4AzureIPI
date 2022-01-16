@@ -4,6 +4,7 @@
 variable "api_lb_ip" {
   type = string
   description = "Private IP of the internal load balancer used for API access" 
+  default = ""
 }
 
 #Private IP of the private load balancer for application access 
@@ -16,6 +17,7 @@ variable "apps_lb_ip" {
 variable "api_cert_passwd" {
   type = string
   description = "Password to decrypt PKCS12 certificate for API listener"
+  default = ""
   sensitive = true
 }
 
