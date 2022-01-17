@@ -23,7 +23,7 @@
   * [Variables Definition](#variables-definition)
     * [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses)
   * [Application Gateway Deployment](#application-gateway-deployment)
-    * [Obtaining the Certificate for API and Application Secure Routes](#obtaining-the-certificate-for-api-and-application secure routes)
+    * [Obtaining the Certificate for API and Application Secure Routes](#obtaining-the-certificate-for-api-and-application-secure-routes)
   * [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway)
   * [Updating the Configuration](#updating-the-configuration)
   * [Application Gateway Decommission](#application-gateway-decommission)
@@ -412,35 +412,47 @@ The following variables are used to pass information to terraform so the Applica
 
 * **publish_api**.- This boolean variable determines if the API entry point is to be published or not.  
 
+    This variable is not required since it has a default value.
+
     Default value is __false__, the API endpoint will not be made public.
 ```
 publish_api = true
 ```
-* **api_lb_ip**.- Private IP of the internal load balancer used for API access.  This variable is not required if the API endpoint is not going to be made public.  See [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses) to learn how to obtain this IP.
+* **api_lb_ip**.- Private IP of the internal load balancer used for API access.  See [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses) to learn how to obtain this IP.
+
+    This variable is not required if the API endpoint is not going to be made public.  
 
     No default value.
 ```
 api_lb_ip = "10.0.1.4"
 ```
-* **apps_lb_ip**.- Private IP of the internal load balancer used for application access.  This variable is always required.  See [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses) to learn how to obtain this IP.
+* **apps_lb_ip**.- Private IP of the internal load balancer used for application access.  See [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses) to learn how to obtain this IP.
+
+    This variable is always required.  
 
     No default value.
 ```
 apps_lb_ip = "10.0.2.8"
 ```
-* **api_cert_passwd**.- Password to decrypt PKCS12 certificate for API listener. This variable is not required if the API endpoint is not going to be made public.
+* **api_cert_passwd**.- Password to decrypt PKCS12 certificate for API listener. 
+
+    This variable is not required if the API endpoint is not going to be made public.
 
     No default value.
 ```
 api_cert_passwd = "l3l#ah91"
 ```
-* **apps_cert_passwd**.- Password to decrypt PKCS12 certificate for APPS listener.  This variable is always required.
+* **apps_cert_passwd**.- Password to decrypt PKCS12 certificate for APPS listener.  
+
+    This variable is always required.
 
     No default value.
 ```
 apps_cert_passwd = "er4a9$C"
 ```
 * **ssl_listener_hostnames**.- List of valid hostnames to access applications in the \*.apps domain when using TLS connections.  If this variable is not defined, no secure routes will be published.
+
+    This variable in not required.
 
     No default value.
 ```
@@ -451,7 +463,9 @@ ssl_listener_hostnames = [ "httpd-example-caprice",
                           "prometheus-k8s-openshift-monitoring",
                         ]
 ```
-* **cluster_domain**.- DNS domain used by cluster.  Consists of *cluster_name* + *cluster_domain*.  This variable is always required.
+* **cluster_domain**.- DNS domain used by cluster.  Consists of *cluster_name* + *cluster_domain*.  
+
+    This variable is always required.
 
     No default value.
 ```
@@ -540,6 +554,8 @@ When the variables are defined and the certificate files are in place the Applic
 $ terraform apply -var-file AppGateway_vars
 ```
 The deployment will take a few minutes, but it could take a little longer to be operational until the health probes verify that the banckend pools can receive requests.
+
+To access the cluster check the section [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway).
 
 #### Obtaining the Certificate for API and Application Secure Routes
 Connections to the API and the secure routes are encrypted end to end, from client to Openshift cluster.  The Application Gateway terminates all TLS connections and stablish new ones with the OCP cluster.  
@@ -651,20 +667,22 @@ To stablish the encrypted end to end connections for API and secure routes two c
 The terraform template expects to find the CA cert for the API endpoint, if required, in a file called **api-root-CA.cer**, and the CA cert for the ingress controller in a file called **apps-root-CA.cer** in the directory __Terraform/AppGateway__.
 
 ### Accessing the Openshift Cluster through the Application Gateway
-When the Application Gateway is deployed, the Openshift cluster can be accessed normally using the external DNS domains that the certificates are valid for.  
+When the Application Gateway is deployed, the Openshift cluster can be accessed normally using the external DNS names that the certificates are valid for.  
 
-For example if the API endpoint is public and the certificate is valid for the DNS name api.jupiter.example.com, the command to log into the cluster as the kubeadmin user would be:
+For example if the API endpoint is public and the certificate is valid for the DNS name _api.jupiter.example.com_, the command to log into the cluster as the kubeadmin user would be:
 ```
 $ oc login -u kubeadmin https://api.jupiter.example.com:6443
 ```
-And if the wildcard certificate is valid for the domain \*.apps.jupiter.example.com the cluster web console can be accessed a thttps://console-openshift-console.apps.jupiter.example.com
+And if the wildcard certificate is valid for the domain _\*.apps.jupiter.example.com_ the cluster web console can be accessed at _https://console-openshift-console.apps.jupiter.example.com_
 
-To be able to connect to these URLs and to the cluster in general, the DNS configuration in the client must be able to resolve the names api.jupiter.example.com and any hostname associated with an application route, be it secure or not.  All these DNS records must resolve to the public IP of the Application Gateway, to find out the value of that IP run the following command in the directory __Terraform/AppGateway__:
+To be able to connect to these URLs and to the cluster in general, the DNS configuration in the client must be able to resolve the names _api.jupiter.example.com_ and any hostname associated with an application route in the domain _\*.apps.jupiter.example.com_.  
+
+All these DNS records must resolve to the public IP of the Application Gateway, to find out the value of that IP run the following command in the directory __Terraform/AppGateway__:
 ```
 $ terraform output frontend_pub_ip
 "20.97.425.13"
 ```
-A simple configuration example using dnsmasq is shown in section [Configuring DNS resolution with dnsmasq](#configuring-dns-resolution-with-dnsmasq)
+A simple DNS configuration example using dnsmasq is shown in section [Configuring DNS resolution with dnsmasq](#configuring-dns-resolution-with-dnsmasq)
 
 ### Updating the Configuration
 The Application Gateway configuration can be updated after deployment using the same terraform template that installs it.  Some examples that require updating the configuration are:
