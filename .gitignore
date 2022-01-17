@@ -8,3 +8,6 @@ Ansible/group_vars/all/terraform_outputs.var
 Ansible/group_vars/all/cluster-vars
 Ansible/ocp_files
 Ansible/inventory
+*.pfx
+*.cer
+Terraform/terraform_apply.txt

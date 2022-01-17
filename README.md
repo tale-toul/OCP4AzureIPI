@@ -687,7 +687,7 @@ A simple DNS configuration example using dnsmasq is shown in section [Configurin
 ### Updating the Configuration
 The Application Gateway configuration can be updated after deployment using the same terraform template that installs it.  Some examples that require updating the configuration are:
 * Publishing or unpublishing the API endpoint
-* Adding or removing new application routes
+* Adding or removing new application secure routes
 * Changing the PKCS12 or CA certificates
 
 To update the configuration simply update the variables in the existing file, or create a new variables file, update the certificate files if needed, and run terraform command again:

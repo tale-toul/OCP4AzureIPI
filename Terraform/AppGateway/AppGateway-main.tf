@@ -28,15 +28,15 @@ locals {
  frontend_port_443_name = "https-443"
  ssl_certificate_api_name = "api-cert"
  ssl_certificate_apps_name = "apps-cert"
- listener_api_name = "listener-api"
- listener_apps_name = "listener-apps"
- backend_pool_api_name = "backend_pool_api"
- backend_pool_apps_name = "backend_pool_apps-ssl"
+ listener_api_name = "api"
+ listener_apps_name = "apps"
+ backend_pool_api_name = "api"
+ backend_pool_apps_name = "apps-ssl"
  api_probe_name = "api_probe"
  apps_probe_name = "apps_probe"
- http_setting_api_name = "http_settings_api"
- http_setting_apps_name = "http_settings_apps"
- http_setting_apps-ssl_name = "http_settings_apps-ssl"
+ http_setting_api_name = "api"
+ http_setting_apps_name = "apps"
+ http_setting_apps-ssl_name = "apps-ssl"
 }
 
 #Subnet to place app gateway in
@@ -232,7 +232,7 @@ resource "azurerm_application_gateway" "app_gateway" {
   dynamic "backend_http_settings" {
     for_each = toset(var.ssl_listener_hostnames)
     content {
-      name = "http_settings_aps-ssl-${backend_http_settings.value}"
+      name = "aps-ssl-${backend_http_settings.value}"
       protocol = "Https"
       port = 443
       cookie_based_affinity = "Disabled"
@@ -265,11 +265,11 @@ resource "azurerm_application_gateway" "app_gateway" {
   dynamic "request_routing_rule" {
     for_each = toset(var.ssl_listener_hostnames)
     content {
-      name = "routing_rule_apps-ssl-${request_routing_rule.value}"
+      name = "apps-ssl-${request_routing_rule.value}"
       rule_type = "Basic"
       http_listener_name = "apps-ssl-listener-${request_routing_rule.value}"
       backend_address_pool_name = local.backend_pool_apps_name 
-      backend_http_settings_name = "http_settings_aps-ssl-${request_routing_rule.value}"
+      backend_http_settings_name = "aps-ssl-${request_routing_rule.value}"
     }
   }
 }
