@@ -29,9 +29,9 @@ variable "apps_cert_passwd" {
 }
 
 variable "ssl_listener_hostnames" {
-  type = map(string)
+  type = list(string)
   description = "List of valid hostnames for the listener and http settings used to access applications in the *.apps domain when using TLS connections"
-  default = {}
+  default = []
 }
 
 variable "cluster_domain" {

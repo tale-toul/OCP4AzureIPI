@@ -1,11 +1,12 @@
-api_lb_ip = "10.0.1.4"
-apps_lb_ip = "10.0.2.8"
-api_cert_passwd = "45sjfx-r6"
-apps_cert_passwd = "V$9llw2h"
-ssl_listener_hostnames = [ "httpd-example-caprice", 
-                          "oauth-openshift",
-                          "console-openshift-console",
-                          "grafana-openshift-monitoring",
-                          "prometheus-k8s-openshift-monitoring",
+#api_lb_ip = "10.0.1.4"
+apps_lb_ip = "10.0.2.7"
+#api_cert_passwd = "12345678"
+apps_cert_passwd = "12345678"
+ssl_listener_hostnames = [ "oauth-openshift.apps.boxhill.bonya.net",
+                          "console-openshift-console.apps.boxhill.bonya.net",
+                          "console-openshift-console.tale.net",
+                          "grafana-openshift-monitoring.apps.boxhill.bonya.net",
+                          "prometheus-k8s-openshift-monitoring.apps.boxhill.bonya.net",
+                          "examplessl-dragon.tale.net",
                         ]
-cluster_domain = "lana.azurecluster.sureshot.pw"
+cluster_domain = "boxhill.bonya.net"

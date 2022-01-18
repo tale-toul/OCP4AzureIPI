@@ -460,18 +460,19 @@ api_cert_passwd = "l3l#ah91"
 ```
 apps_cert_passwd = "er4a9$C"
 ```
-* **ssl_listener_hostnames**.- List of entries containing the short hostname and the external doamin to access the secure application routes using TLS connections.  External and internal domain don't need to match (see [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway) for more information).  If this variable is not defined, no secure routes will be published.
+* **ssl_listener_hostnames**.- List of external FQDN hostnames used to access the secure application routes.  External and internal domains don't need to match (see [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway) for more information).  If this variable is not defined, no secure routes will be published.
 
     This variable in not required.
 
     No default value.
 ```
-ssl_listener_hostnames = { "oauth-openshift" = "apps.boxhill.bonya.net",
-                          "console-openshift-console" = "apps.boxhill.bonya.net",
-                          "grafana-openshift-monitoring" = "apps.boxhill.bonya.net",
-                          "prometheus-k8s-openshift-monitoring" = "apps.boxhill.bonya.net",
-                          "examplessl-dragon" = "tale.net",
-                        }
+ssl_listener_hostnames = [ "oauth-openshift.apps.jupiter.example.com",
+                          "console-openshift-console.apps.jupiter.example.com",
+                          "console-openshift-console.tale.net",
+                          "grafana-openshift-monitoring.apps.jupiter.example.com",
+                          "prometheus-k8s-openshift-monitoring.apps.jupiter.example.com",
+                          "examplessl-dragon.tale.net",
+                        ]
 ```
 * **cluster_domain**.- DNS domain used by cluster.  Consists of *cluster_name* + *cluster_domain*.  
 
@@ -522,7 +523,7 @@ Follow the next steps to create the Application Gateway:
 
 * Obtain the IP addresses to assing to **apps_lb_ip**, and to **api_lb_api** if required, instructions on how to get this information can be found in the section [Variables definition](#variables-definition).
 
-* Define the variable **ssl_listener_hostnames** with a list of entries defining the secure application routes to be published using the _https_ protocol, as defined in the section [Variables Definition](#variables-definition) 
+* Define the variable **ssl_listener_hostnames** with a list of external FQDNs hostnames defining the secure application routes to be published using the _https_ protocol, as described in the section [Variables Definition](#variables-definition) 
 
     If additional secure routes are required at a later time, just add new entries to the list and rerun the AppGateway terraform module.
 
@@ -540,11 +541,12 @@ api_lb_ip = "10.0.1.4"
 apps_lb_ip = "10.0.2.8"
 api_cert_passwd = "l3l#ah91""
 apps_cert_passwd = "er4a9$C""
-ssl_listener_hostnames = [ "httpd-example-caprice", 
-                          "oauth-openshift",
-                          "console-openshift-console",
-                          "grafana-openshift-monitoring",
-                          "prometheus-k8s-openshift-monitoring",
+ssl_listener_hostnames = [ "oauth-openshift.apps.jupiter.example.com",
+                          "console-openshift-console.apps.jupiter.example.com",
+                          "console-openshift-console.tale.net",
+                          "grafana-openshift-monitoring.apps.jupiter.example.com",
+                          "prometheus-k8s-openshift-monitoring.apps.jupiter.example.com",
+                          "examplessl-dragon.tale.net",
                         ]
 cluster_domain = "jupiter.example.com"
 ```
@@ -677,7 +679,7 @@ To stablish the encrypted end to end connections for API and secure routes two c
 The terraform template expects to find the CA cert for the API endpoint, if required, in a file called **api-root-CA.cer**, and the CA cert for the ingress controller in a file called **apps-root-CA.cer** in the directory __Terraform/AppGateway__.
 
 ### Accessing the Openshift Cluster through the Application Gateway
-When the Application Gateway is deployed, the Openshift cluster can be accessed using the external DNS names assigned to the different entry points.  Three different scenarios can be considered here:
+When the Application Gateway is deployed, the Openshift cluster can be accessed using the external DNS names assigned to the different entry points.  Three different access points can be considered here:
 
 * **Access to the API endpoint**.- This can only be accessed from the Internet if it was made public by assigning the value _true_ to the variable [publish_api](#variables-definition).  If for example its DNS name is _api.jupiter.example.com_, the command to log into the cluster as the kubeadmin user would be:
 ```
@@ -686,13 +688,16 @@ $ oc login -u kubeadmin https://api.jupiter.example.com:6443
 * **Access to non secure applications**.- Any application route using the _http_ protocol is accessible from the internet through the Application Gateway if a wildcard DNS entry is defined in the public DNS zone, if specific DNS records are created for every application, when the route hostname can be resolved, so the application will be accessible.
 
     For example if the wildcard DNS domain is valid for the domain _\*.apps.jupiter.example.com_, the cluster web console can be accessed at _https://console-openshift-console.apps.jupiter.example.com_
-* **Access to secure applications**.- To enable access to an application route that uses the _https_ protocol, its hostname and external DNS domain must be included in the variable __ssl_listener_hostnames__.  Each entry in this map contains the short hostname as the key and the external domain as de value, for example to access an application whose URL is __https://examplessl-dragon.tale.net__, the entry __"examplessl-dragon" = "tale.net"__ should be added to the map.  Some points are worth highlighting here:
+* **Access to secure applications**.- To enable access to an application route that uses the _https_ protocol, its external FQDN hostname be included in the list variable __ssl_listener_hostnames__.  Some points to highlighting here:
 
-  * The external domain doesn't need to match the internal one, but the short hostname must. In the example, the name __examplessl-dragon.tale.net__ translate to the internal name __examplessl-dragon.apps.jupiter.example.com__. The domain are different _tale.net_ vs _apps.jupiter.example.com_, but the short hostnames match _examplessl-dragon_
+  * The external domain doesn't need to match the internal one, but the short hostname must.  For example, the name __examplessl-dragon.tale.net__ translate to the internal name __examplessl-dragon.apps.jupiter.example.com__. The domain are different _tale.net_ vs _apps.jupiter.example.com_, but the short hostnames match _examplessl-dragon_
 
-  * The external certificate should be valid for the route URL.-  The external certificate included in the file __apps-cert.pfx__ should be valid for the name used in the route URL, the most common setup is to use a wildcard certificate for the domain.  If the certificate is not valid for the hostname in the URL the application can still be accessed but a the browser will show a warning message about invalid certificate. 
+  * An application running in the Openshift cluster can be accessed with different external domain names.  An example of this is shown here, the two entries point to the same application but use different external domains:
 
-  * The first element in each map entry must be unique.- The first element in each map entry is the key to search the value, which is the second entry, so it must be unique.  This means that two routes cannot share the host short name even if the domains are different.
+        "webfront.apps.boxhill.bonya.net",
+        "webfront.tale.net",
+
+  * The external certificate used by the Application Gateway to encrypt client connections included in the file __apps-cert.pfx__ should be valid for the name used in the external URL, the most common setup is to use a wildcard certificate for the domain.  If the certificate is not valid for the hostname in the URL the application can still be accessed but a the browser will show a warning message about invalid certificate. 
 
 To be able to connect to these URLs and to the cluster in general, the DNS configuration in the client must be able to resolve the names _api.jupiter.example.com_ and any hostname associated with an application route in the domain _\*.apps.jupiter.example.com_.  
 
