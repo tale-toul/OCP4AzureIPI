@@ -129,14 +129,14 @@ resource "azurerm_application_gateway" "app_gateway" {
   }
 
   dynamic "http_listener" {
-    for_each = toset(var.ssl_listener_hostnames)
+    for_each = var.ssl_listener_hostnames
     content {
-      name = "apps-ssl-listener-${http_listener.value}"
+      name = "apps-ssl-listener-${http_listener.key}-${http_listener.value}"
       frontend_ip_configuration_name = local.frontend_ip_conf_pub_name
       frontend_port_name = local.frontend_port_443_name
       protocol = "Https"
       ssl_certificate_name = local.ssl_certificate_apps_name
-      host_name = "${http_listener.value}.apps.${var.cluster_domain}"
+      host_name = "${http_listener.key}.${http_listener.value}"
     }
   }
 
@@ -213,11 +213,11 @@ resource "azurerm_application_gateway" "app_gateway" {
   }
 
   dynamic "probe" {
-    for_each = toset(var.ssl_listener_hostnames)
+    for_each = var.ssl_listener_hostnames
     content {
-      name = "apps-ssl-probe-${probe.value}"
+      name = "apps-ssl-probe-${probe.key}-${probe.value}"
       protocol = "Https"
-      host = "${probe.value}.apps.${var.cluster_domain}"
+      host = "${probe.key}.apps.${var.cluster_domain}"
       path = "/"
       interval = 30
       timeout = 30
@@ -230,16 +230,16 @@ resource "azurerm_application_gateway" "app_gateway" {
   }  
 
   dynamic "backend_http_settings" {
-    for_each = toset(var.ssl_listener_hostnames)
+    for_each = var.ssl_listener_hostnames
     content {
-      name = "aps-ssl-${backend_http_settings.value}"
+      name = "aps-ssl-${backend_http_settings.key}-${backend_http_settings.value}"
       protocol = "Https"
       port = 443
       cookie_based_affinity = "Disabled"
       request_timeout = 20
-      host_name = "${backend_http_settings.value}.apps.${var.cluster_domain}"
+      host_name = "${backend_http_settings.key}.apps.${var.cluster_domain}"
       trusted_root_certificate_names = ["apps_root_CA"]  
-      probe_name = "apps-ssl-probe-${backend_http_settings.value}"
+      probe_name = "apps-ssl-probe-${backend_http_settings.key}-${backend_http_settings.value}"
     }
   }
 
@@ -263,13 +263,13 @@ resource "azurerm_application_gateway" "app_gateway" {
   }
 
   dynamic "request_routing_rule" {
-    for_each = toset(var.ssl_listener_hostnames)
+    for_each = var.ssl_listener_hostnames
     content {
-      name = "apps-ssl-${request_routing_rule.value}"
+      name = "apps-ssl-${request_routing_rule.key}-${request_routing_rule.value}"
       rule_type = "Basic"
-      http_listener_name = "apps-ssl-listener-${request_routing_rule.value}"
+      http_listener_name = "apps-ssl-listener-${request_routing_rule.key}-${request_routing_rule.value}"
       backend_address_pool_name = local.backend_pool_apps_name 
-      backend_http_settings_name = "aps-ssl-${request_routing_rule.value}"
+      backend_http_settings_name = "aps-ssl-${request_routing_rule.key}-${request_routing_rule.value}"
     }
   }
 }

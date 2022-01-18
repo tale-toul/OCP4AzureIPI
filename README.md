@@ -31,25 +31,33 @@
 
 ## Introduction
 
-The instructions and code in this repository can be used as an example to deploy an Openshift 4 cluster on a pre existing VNet in Azure.  The installer used here is the IPI installer.
+The instructions and code in this repository can be used as an example to create a basic networking infrastructure in Azure and deploy an Openshift 4 cluster on that infrastructure using the IPI installer.
 
-The Openshift cluster deployed using this repository can be publc or private:
-* A public cluster is fully accessible from the Internet.  
-* A private cluster is not accessible from outside the VNet where it is created unless additional configurations are put in place to allow clients to connect from other VNets or the Internet at large.  This repository provides an [example of such configuration](#accessing-a-private-openshift-cluster-from-the-internet) using an Application Gateway to turn the private cluster, or parts of it public.
+The Openshift cluster deployed using this repository can be public or private:
+* A [public](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-vnet.html) cluster is fully accessible from the Internet.  
+* A [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html) cluster is only accessible from the VNet where it is created unless additional configurations are put in place to allow clients to connect from other VNets or from the Internet.  This repository provides an [example of such configuration](#accessing-a-private-openshift-cluster-from-the-internet) using an [Azure Application Gateway](#https://docs.microsoft.com/en-us/azure/application-gateway/overview) to make public the private cluster, or parts of it.  A private cluster must be installed from a host in the same VNet where the cluster will run so the installer can resolve the DNS records served by the private DNS zone.
 
-    Why create a private cluster and then make it public if it can more easily be installed as public from the beginning.  Several reasong may exist: Hidding the complex DNS domain used by the cluster and instead publish a simpler one (myapp.apps.cluster1.example.com vs myapp.example.com); Limiting the number of public applications to a subset of the all applications running in the cluster; Keeping the API endpoint private; Keeping the cluster private until it is fully configured and ready for use; Hidding a multicluster infrastructure behind a single point of access; etc.
+    Some of the reasons to create a private cluster and then make it public instead of install it as a public cluster from the beginning are:
 
-The VNet and related Azure resources required to deploy the OCP cluster are created using terraform. 
-The OCP cluster can be [public](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-vnet.html), that is accessible from Intenet; or [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html) only accessible from the VNet where it is deployed.
+      * Hidding the complex DNS domain used by the cluster and instead publish a simpler one (myapp.apps.cluster1.example.com vs myapp.example.com). 
+      * Limiting the number of public applications to a subset of the all applications running in the cluster. 
+      * Keeping the API endpoint private. 
+      * Keeping the cluster private until it is fully configured and ready for use. 
+      * Hidding a multicluster infrastructure behind a single point of access.
 
-The Azure resources required to deploy the Openshift 4 cluster is an existing VNet are:
-* Resource Group.- That contains the following resources
+In regards to the outgoing network traffic, the Openshift cluster created using this repository can reach out to the Internet and connect to external services, this simplifies installation and container image pulling from external repositories for example.  Two possible configuration options for outgoing network traffic can be used here: 
+* Load Balancer.- The Openshift installer creates a load balancer with outbound rules to allow connections from the cluster to the Internet
+* NAT Gateway.- Terraform creates a NAT gateway to allow outgoing network traffic from the cluster to the Internet.
+For more details on this see the section [Outbound traffic configuration](#outbound-traffic-configuration).
+
+The VNet and related Azure resources required to deploy the OCP cluster are created using terraform, these include: 
+* Resource Group.- Contains the following resources
 * VNet
 * Subnets.- Two subnets are needed, one for the control plane (masters) and one for the worker nodes.
 * Network security groups.- One for each of the above subnets with its own security rules.
 * Resources and configuration for the oubound network traffic from the cluster nodes to the Internet.- The requirement for these resources depends on the value of the variable [outboundType](#outbound-traffic-configuration) in the install-config.yaml file.
 
-These resources are usually created by the IPI installer, to make it aware that they already exist and should not be created during cluster intallation the following variables must be defined in the __platform.azure__ section in the install-config.yaml file:
+To make the IPI installer aware that the above resource already exist and should not be created during cluster intallation the following variables must be defined in the __platform.azure__ section in the install-config.yaml file:
 
 * networkResourceGroupName.- Contains the name of the resource group where the previously mentioned, user provided network resources exist.
 * virtualNetwork.- The name of the VNet to be used
@@ -120,11 +128,13 @@ This instruction use the _az_ command line tool.
 ## Outbound traffic configuration
 The network resources and configuration allowing the cluster nodes to connect to the Internet (outbound traffic) depend on the value of the variable __outboundType__ in the install-config.yaml file. This configuration is independent from that of the inbound cluster traffic, whether this is a public or private cluster.
 
-The __outboundType__ variable can take only two possible values: Loadbalancer and UserDefinedRouting:
+The __outboundType__ variable can only take two possible values: Loadbalancer and UserDefinedRouting:
 * **LoadBalancer**.- The IPI installer will create an outbound rule in the public load balancer to allow outgoing connections from the nodes to the Internet.  If the the cluster is public, the load balancer is used for routing both inbound traffic from the Internet to the nodes and outbound traffic from the nodes to the Internet.  If the cluster is private there is no inbound traffic from the Internet to the nodes, but the load balancer will still be created and will only be used for outbound traffic from the nodes to the Internet.
-* **UserDefinedRouting**.- The necessary infrastructure and configuration to allow the cluster nodes to connect to the internet must be in place before running the IPI installer, different options exit in Azure for this: NAT gateway; Azure firewall; Proxy server; etc.  In this repository the terraform template creates a NAT gateway if the **outbound_type** variable contains the value _UserDefinedRouting_.  
+* **UserDefinedRouting**.- The necessary infrastructure and configuration to allow the cluster nodes to connect to the internet must be in place before running the IPI installer, different options exit in Azure for this: NAT gateway; Azure firewall; Proxy server; etc.  
 
-When outboundType = UserDefinedRouting, a load balancer is still created but contains no frontend IP address, load balancing rules or outbound rules, so it serves no purpose.  A fully functional internal load balancer is always created for access to the API service and applications only from inside the VNet.
+When using _UserDefinedRouting_ in a private cluster, a load balancer is still created but contains no frontend IP address, load balancing rules or outbound rules, so it serves no purpose.  A fully functional internal load balancer is always created for access to the API service and applications only from inside the VNet.
+
+In this repository the terraform variable **outbound_type** is used to select the type of outbound traffic configuration, for more details see [Variables definition](#variables-definition)
 
 ## Cluster Deployment Instructions
 
@@ -450,18 +460,18 @@ api_cert_passwd = "l3l#ah91"
 ```
 apps_cert_passwd = "er4a9$C"
 ```
-* **ssl_listener_hostnames**.- List of valid hostnames to access applications in the \*.apps domain when using TLS connections.  If this variable is not defined, no secure routes will be published.
+* **ssl_listener_hostnames**.- List of entries containing the short hostname and the external doamin to access the secure application routes using TLS connections.  External and internal domain don't need to match (see [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway) for more information).  If this variable is not defined, no secure routes will be published.
 
     This variable in not required.
 
     No default value.
 ```
-ssl_listener_hostnames = [ "httpd-example-caprice", 
-                          "oauth-openshift",
-                          "console-openshift-console",
-                          "grafana-openshift-monitoring",
-                          "prometheus-k8s-openshift-monitoring",
-                        ]
+ssl_listener_hostnames = { "oauth-openshift" = "apps.boxhill.bonya.net",
+                          "console-openshift-console" = "apps.boxhill.bonya.net",
+                          "grafana-openshift-monitoring" = "apps.boxhill.bonya.net",
+                          "prometheus-k8s-openshift-monitoring" = "apps.boxhill.bonya.net",
+                          "examplessl-dragon" = "tale.net",
+                        }
 ```
 * **cluster_domain**.- DNS domain used by cluster.  Consists of *cluster_name* + *cluster_domain*.  
 
@@ -512,9 +522,9 @@ Follow the next steps to create the Application Gateway:
 
 * Obtain the IP addresses to assing to **apps_lb_ip**, and to **api_lb_api** if required, instructions on how to get this information can be found in the section [Variables definition](#variables-definition).
 
-* Define the variable **ssl_listener_hostnames** with a list of short hostnames, without the DNS domain, of the Openshift application secure routes to be published using the _https_ protocol.  This list should at least contain the following names: "oauth-openshift", "console-openshift-console", "grafana-openshift-monitoring", "prometheus-k8s-openshift-monitoring".  
+* Define the variable **ssl_listener_hostnames** with a list of entries defining the secure application routes to be published using the _https_ protocol, as defined in the section [Variables Definition](#variables-definition) 
 
-    If additional secure routes are required at a later time, just add the names to the list and rerun the AppGateway terraform module.
+    If additional secure routes are required at a later time, just add new entries to the list and rerun the AppGateway terraform module.
 
 * Define the variable **cluster_domain** with the DNS domain used by the Openshift cluster.
 
@@ -667,13 +677,22 @@ To stablish the encrypted end to end connections for API and secure routes two c
 The terraform template expects to find the CA cert for the API endpoint, if required, in a file called **api-root-CA.cer**, and the CA cert for the ingress controller in a file called **apps-root-CA.cer** in the directory __Terraform/AppGateway__.
 
 ### Accessing the Openshift Cluster through the Application Gateway
-When the Application Gateway is deployed, the Openshift cluster can be accessed normally using the external DNS names that the certificates are valid for.  
+When the Application Gateway is deployed, the Openshift cluster can be accessed using the external DNS names assigned to the different entry points.  Three different scenarios can be considered here:
 
-For example if the API endpoint is public and the certificate is valid for the DNS name _api.jupiter.example.com_, the command to log into the cluster as the kubeadmin user would be:
+* **Access to the API endpoint**.- This can only be accessed from the Internet if it was made public by assigning the value _true_ to the variable [publish_api](#variables-definition).  If for example its DNS name is _api.jupiter.example.com_, the command to log into the cluster as the kubeadmin user would be:
 ```
 $ oc login -u kubeadmin https://api.jupiter.example.com:6443
 ```
-And if the wildcard certificate is valid for the domain _\*.apps.jupiter.example.com_ the cluster web console can be accessed at _https://console-openshift-console.apps.jupiter.example.com_
+* **Access to non secure applications**.- Any application route using the _http_ protocol is accessible from the internet through the Application Gateway if a wildcard DNS entry is defined in the public DNS zone, if specific DNS records are created for every application, when the route hostname can be resolved, so the application will be accessible.
+
+    For example if the wildcard DNS domain is valid for the domain _\*.apps.jupiter.example.com_, the cluster web console can be accessed at _https://console-openshift-console.apps.jupiter.example.com_
+* **Access to secure applications**.- To enable access to an application route that uses the _https_ protocol, its hostname and external DNS domain must be included in the variable __ssl_listener_hostnames__.  Each entry in this map contains the short hostname as the key and the external domain as de value, for example to access an application whose URL is __https://examplessl-dragon.tale.net__, the entry __"examplessl-dragon" = "tale.net"__ should be added to the map.  Some points are worth highlighting here:
+
+  * The external domain doesn't need to match the internal one, but the short hostname must. In the example, the name __examplessl-dragon.tale.net__ translate to the internal name __examplessl-dragon.apps.jupiter.example.com__. The domain are different _tale.net_ vs _apps.jupiter.example.com_, but the short hostnames match _examplessl-dragon_
+
+  * The external certificate should be valid for the route URL.-  The external certificate included in the file __apps-cert.pfx__ should be valid for the name used in the route URL, the most common setup is to use a wildcard certificate for the domain.  If the certificate is not valid for the hostname in the URL the application can still be accessed but a the browser will show a warning message about invalid certificate. 
+
+  * The first element in each map entry must be unique.- The first element in each map entry is the key to search the value, which is the second entry, so it must be unique.  This means that two routes cannot share the host short name even if the domains are different.
 
 To be able to connect to these URLs and to the cluster in general, the DNS configuration in the client must be able to resolve the names _api.jupiter.example.com_ and any hostname associated with an application route in the domain _\*.apps.jupiter.example.com_.  
 
@@ -747,5 +766,13 @@ $ dig +short api.jupiter.example.com
 
 ## Publishing TLS Routes via the Application Gateway
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
+
 @#Why use a map instead of a set for hostname lists?  To avoid rebuilding a lot of the app gateway if the list is reordered alphabetically, and to allow defining different external and internal domains#@
+Keys in the map must be unique, no 2 console-openshift-console with different values are possible, which makes sense.
+Web console redirects to the apps domain at some point, maybe this can be changed by defining the console domain which is a feature introduced at some point in OCP
+Perhaps the best idea is to leave the internal tools (console, metrics, oauth) as private.
+
+@#Por que las aplicaciones no seguras (http) no usan la lista condicional de publicación, y todas son automáticamente accesibles?#@
+
+
 @#Using let's encrypt to add a valid certificate to the Application Gateway#@
