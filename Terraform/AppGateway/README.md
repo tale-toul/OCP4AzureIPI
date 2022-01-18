@@ -39,7 +39,7 @@ The function contains two arguments: the regular expression and the string to ap
 
 Because the regular expression contains a capture group, the regex() function returns a list of results.  In this case there is only one capture group so the list will always have at most one element. That is way to convert the list into a string a position index meaning the first element is used: `regex()[0]`
 
-To build the final string the join function is used, the delimiter between components is a dot "." and the list of components is made of the value returned by the regex() function which is the short hostname; the "apps" string; and the cluster domain as defined in the variable cluster_domain
+To build the final string the [join](#https://www.terraform.io/language/functions/join) function is used, the delimiter between components is a dot "." and the list of components is made of the value returned by the regex() function which is the short hostname; the "apps" string; and the cluster domain as defined in the variable cluster_domain
 
 Trying to use a string template to build the internal hostname resulted in an error.  The string template is easier to understand than the complex construct with the join function however it didn't work:
 ```
