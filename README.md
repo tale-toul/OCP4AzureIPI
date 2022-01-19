@@ -773,9 +773,13 @@ $ dig +short api.jupiter.example.com
 20.97.425.13
 ```
 
-## Publishing TLS Routes via the Application Gateway
+## TODO
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
 
-@#Por que las aplicaciones no seguras (http) no usan la lista condicional de publicación, y todas son automáticamente accesibles?#@
+@#Why non secure application routes (http) are all available instead of using conditional publication like secure routes do?#@
 
 @#Using let's encrypt to add a valid certificate to the Application Gateway#@
+
+@#Open the bugzilla for the private clusters that need to specify the public DNS resource group#@
+
+@#When the secret associated with the service principal expires, can the OCP cluster still operate and create new resources like an ingress controller or be updated?#@
