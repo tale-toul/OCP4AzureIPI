@@ -39,11 +39,11 @@ The Openshift cluster deployed using this repository can be public or private:
 
     Some of the reasons to create a private cluster and then make it public instead of install it as a public cluster from the beginning are:
 
-      * Hidding the complex DNS domain used by the cluster and instead publish a simpler one (myapp.apps.cluster1.example.com vs myapp.example.com). 
-      * Limiting the number of public applications to a subset of the all applications running in the cluster. 
-      * Keeping the API endpoint private. 
-      * Keeping the cluster private until it is fully configured and ready for use. 
-      * Hidding a multicluster infrastructure behind a single point of access.
+    * Hidding the complex DNS domain used by the cluster and instead publish a simpler one (myapp.apps.cluster1.example.com vs myapp.example.com). 
+    * Limiting the number of public applications to a subset of the all applications running in the cluster. 
+    * Keeping the API endpoint private. 
+    * Keeping the cluster private until it is fully configured and ready for use. 
+    * Hidding a multicluster infrastructure behind a single point of access.
 
 In regards to the outgoing network traffic, the Openshift cluster created using this repository can reach out to the Internet and connect to external services, this simplifies installation and container image pulling from external repositories for example.  Two possible configuration options for outgoing network traffic can be used here: 
 * Load Balancer.- The Openshift installer creates a load balancer with outbound rules to allow connections from the cluster to the Internet
