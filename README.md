@@ -18,6 +18,7 @@
   * [Destroying the bastion infrastructure](#destroying-the-bastion-infrastructure)
 * [Prepare the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
+  * [Accessing the Bootstrap Node](#accessing-the-bootstrap-node)
 * [Cluster Decommission Instructions](#cluster-decommission-instructions)
 * [Accessing a Private OpenShift Cluster from The Internet](#accessing-a-private-openshift-cluster-from-the-internet)
   * [Variables Definition](#variables-definition)
@@ -110,12 +111,21 @@ Check that it is working:
  # terraform --version
 ```
 ### Creating a Service Principal 
-For more details visit the [official Openshift documentation](#https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-service-principal_installing-azure-account)
+For more details visit the [official Openshift documentation](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-service-principal_installing-azure-account)
 
-This instruction use the _az_ command line tool.
-* Create the service principal and assing it the _Contributor_ role and a name, in the example *ocp_install_sp*. Save the _appId_ and password values, they are needed in following steps:
+These instructions use the _az_ command line tool:
+* Create the service principal and assign it the _Contributor_ role, in the following example command it gets the name *ocp_install_sp*. 
+
+    The creation of the service principal will generate a secret to auhenticate it with Azure Actuve Directory, by default this secret is valid for one year.  Save the _appId_ and password values, they are needed in following steps:
 
         $ az ad sp create-for-rbac --role Contributor --name ocp_install_sp
+        {
+          "appId": "2bbe757d-a3f4-45eb-8a83-52e3c67e6ac7",
+          "displayName": "ocp49-installer",
+          "name": "2bbe757d-a3f4-45eb-8a83-52e3c67e6ac7",
+          "password": "sxrw.jIBc~4qigF0Yn84Vkj7~PhN0_LCHa",
+          "tenant": "46dc81a2-d083-ff32-3801-abacc1dd1408"
+        }
 
  
 * Assign the _User Access Administrator_ role to the service principal just created. Replace \<appId\> with the value obtained in the first command:
@@ -124,6 +134,19 @@ This instruction use the _az_ command line tool.
         --assignee-object-id $(az ad sp list --filter "appId eq '<appId>'" \ 
         | jq '.[0].objectId' -r)
 
+        {
+          "canDelegate": null,
+          "condition": null,
+          "conditionVersion": null,
+          "description": null,
+          "id": "/subscriptions/aab9382c-c711-33a1-b670-05f6677b3e2a/providers/Microsoft.Authorization/roleAssignments/4aed0546-ef0f-46fc-8258-d838d98caff2",
+          "name": "4aed0546-ef0f-46fc-8258-d838d98caff2",
+          "principalId": "253c270e-4bd4-4dc4-8bb1-75809b41adbb",
+          "principalType": "ServicePrincipal",
+          "roleDefinitionId": "/subscriptions/aab9382c-c711-33a1-b670-05f6677b3e2a/providers/Microsoft.Authorization/roleDefinitions/81d7d88d-d53e-4f5b-ac53-7113c20a72d9",
+          "scope": "/subscriptions/aab9382c-c711-33a1-b670-05f6677b3e2a",
+          "type": "Microsoft.Authorization/roleAssignments"
+        }
 
 ## Outbound traffic configuration
 The network resources and configuration allowing the cluster nodes to connect to the Internet (outbound traffic) depend on the value of the variable __outboundType__ in the install-config.yaml file. This configuration is independent from that of the inbound cluster traffic, whether this is a public or private cluster.
@@ -193,24 +216,24 @@ $ az login
 Once successfully loged in, the file __~/.azure/azureProfile.json__ is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  This credentials are valid for the following days so no further authentication with Azure is required for a while.
 
 #### Variables definition
-Some of the resources created by terraform can be adjusted via the use of variables:
+Some of the resources created by terraform can be adjusted via the use of variables.  These variables can be defined in the command line or in a file:
 * **cluster_name**.- A unique name for the Openshift cluster.  
 
     No default value so it must be specified everytime the _terraform_ command is executed. 
 
-        cluster_name: jupiter
+        cluster_name = jupiter
 
 * **region_name**.- Contains the short name of the Azure region where the resources, and the Openshift cluster, will be created. The short name of the regions can be obtained from the __Name__ column in the output of the command `az account list-locations -o table`.  
 
     No default value so it must be specified everytime the _terraform_ command is executed. 
 
-        region_name: "francecentral"
+        region_name = "francecentral"
 
 * **create_bastion**.- Boolean used to determine if the bastion infrastructure will be created or not.
 
     Default value **true**
 
-        create_bastion: false
+        create_bastion = false
 
 * **cluster_scope**.- Used to define if the cluster will be public (accessible from the Internet) or private (not accessible from the Internet).  
 
@@ -218,7 +241,7 @@ Some of the resources created by terraform can be adjusted via the use of variab
 
     Default value: _public_
 
-        cluster_scope: public
+        cluster_scope = public
 
 * **outbound_type**.- Defines the networking method that cluster nodes use to connect to the Internet (outbound traffic).  
 
@@ -226,10 +249,10 @@ Some of the resources created by terraform can be adjusted via the use of variab
 
     Default value:_LoadBalancer_.
 
-        outbound_type: LoadBalancer
+        outbound_type = LoadBalancer
 
 #### SSH key
-Regardless of whether the the bastion infrastructure is going to be created ([Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)), an ssh key is needed to connect to the bastion VM and the OCP cluster nodes.
+Regardless of whether the the bastion infrastructure is going to be created or not ([Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)), an ssh key is needed to connect to the bastion VM and the OCP cluster nodes.
 
 Terraform expects a file containing the public ssh key in a file at __Terraform/Bastion/ocp-install.pub__.  This can be an already existing ssh key or a new one can be [created](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html#ssh-agent-using_installing-azure-private):
 
@@ -243,7 +266,7 @@ To create the infrastructure run the __terraform apply__ command.  Enter "yes" a
 
 ```  
 $ cd Terraform
-$ terraform apply -var="region_name=West Europe"
+$ terraform apply -var region_name="uksouth" -var cluster_name="boxhill" -var cluster_scope=private -var outbound_type="UserDefinedRouting"
 ...
 Do you want to perform these actions?
   Terraform will perform the actions described above.
@@ -251,6 +274,18 @@ Do you want to perform these actions?
 
   Enter a value: yes
 ```  
+Alternatively if the variables were defined in a file called *infra_vars* use a commnad like:
+```  
+$ cat infra_vars 
+cluster_name = "bell"
+region_name= "westeurope"
+create_bastion = true
+cluster_scope = "private"
+outbound_type = "LoadBalancer"
+
+$ terraform apply -var-file infra_vars
+```  
+
 Resource creation will be completed successfully when a message like the following appears:
 ```  
 Apply complete! Resources: 9 added, 0 changed, 0 destroyed.
@@ -309,14 +344,14 @@ __WARNING__ If the __-target__ option is not used, terraform will delete all res
 The option `-target module.<name>` is used to affect only a particular module in the terraform command
 
 ## Prepare the bastion host to install Openshift
-Ansible is used to prepare the bastion host so the Openshift 4 cluster installation can be run from it.  Before running the playbook some prerequisites must be fullfilled:
+Ansible is used to prepare the bastion host so the Openshift 4 installation can be run from it.  Before running the playbook some prerequisites must be fullfilled:
 
 Define the following variables in the file **Ansible/group_vars/all/cluster-vars**:
 * **DNS base domain**.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a _public_ cluster, this DNS domain must exist in an Azure resource group.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as `<cluster name>.<base domain>` so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
 ```
 base_domain: example.com
 ```
-* **Base domain resource group**.- The Azure resource group name where the base domain exists.  In a private cluster this variable need not be defined.  Assing the name to the variable **base_domain_resource_group**
+* **Base domain resource group**.- The Azure resource group name where the base domain exists.  In a private cluster this variable is not required.  Assing the name to the variable **base_domain_resource_group**
 ```
 base_domain_resource_group: waawk-dns
 ```
@@ -337,22 +372,22 @@ $ ansible-playbook -vvv -i inventory setup_bastion.yaml
 If anything goes wrong during the playbook execution, the messages generated by ansible can be found in the file __Ansible/ansible.log__
 
 ## OCP Cluster Deployment
-Connect to the bastion host using ssh and enter the __OCP4__ directory. Use its public IP and the private part of the ssh key injected installed in the bastion VM.  The bastion VM can be found in several places, for example in the terraform output:
+Connect to the bastion host using ssh. Use its public IP and the private part of the ssh key installed in the bastion VM.  The bastion's IP can be found in several places, for example in the terraform output:
 ```
 $ cd Terraform
 $ terraform output bastion_public_ip
 20.43.63.15
 $ ssh -i ~/.ssh/ocp_install azureuser@20.43.63.15
-$ cd OCP4
 ```
-The Openshift installer, oc cli and a directory with the cluster name should be found here:
+The Openshift installer, oc cli and a directory with the cluster name should be found in the _OCP4_ directory:
 ```shell
+$ cd OCP4
 $ ls -F
 jupiter/  oc  openshift-install
 ```
 The directory contains the configuration file __install-config.yaml__, review and modify the file as required.
 
-Before running the installer backup the install-config.yaml because the installer removes it as part of the installation process, and also run the installer in a tmux session so the terminal doesn't get blocked for around 40 minutes, which is the time the installation needs to complete.
+Before running the installer backup the install-config.yaml because it is removed durign the installation process.  It is also recommended to run the installer in a tmux session so the terminal doesn't get blocked during more than 40 minutes, which is the time the installation needs to complete.
 
 ```
 $ cp jupiter/install-config.yaml .
@@ -370,13 +405,13 @@ INFO Credentials loaded from file "/home/azureuser/.azure/osServicePrincipal.jso
 INFO Consuming Install Config from target directory 
 INFO Creating infrastructure resources...
 ```
-Alternatively an existing _osServicePrincipal.json_ file containing the credentials can be copied to the bastion host and placed at _/home/azureuser/.azure/osServicePrincipal.json_.  In this case the Openshift installer will not ask for the credentials and use the file instead.
+Alternatively an existing _osServicePrincipal.json_ file containing the [service principal](#creating-a-service-principal) credentials can be copied to the bastion host and placed at _/home/azureuser/.azure/osServicePrincipal.json_.  In this case the Openshift installer will not ask for the credentials and use the file instead.
 
 The installation process will take more than 40 minutes.  The progress can be followed by tailing the *.openshift_install.log* :
 ```
 $ tail -f OCP4/jupiter/.openshift_install.log
 ```
-### Accessing the bootstrap node
+### Accessing the Bootstrap Node
 In the first stages of the installation process a bootstrap node is created.  Sometimes it maybe desired to connect to this bootstrap node to watch this part of the installation or for debugging reasons.
 
 The IPI installer creates a network security group and adds a rule to allow ssh connection to the boostrap node, however in an installation where the VNet, subnets, network security groups, etc. are provided by the user, the network security group created by the IPI installer is only applied to the bootstrap's network interface and not to the subnet where it is "connected".
@@ -783,3 +818,5 @@ $ dig +short api.jupiter.example.com
 @#Open the bugzilla for the private clusters that need to specify the public DNS resource group#@
 
 @#When the secret associated with the service principal expires, can the OCP cluster still operate and create new resources like an ingress controller or be updated?#@
+
+Imh7Q~jIu6M26bXewRrEZuz1uOi1Bch.bwxqK
