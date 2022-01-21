@@ -16,7 +16,7 @@
 * [Bastion infrastructure](#bastion-infrastructure)
   * [Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)
   * [Destroying the bastion infrastructure](#destroying-the-bastion-infrastructure)
-* [Prepare the bastion host to install Openshift](#set-up-the-bastion-host-to-install-openshift)
+* [Prepare the bastion host to install Openshift](#prepare-the-bastion-host-to-install-openshift)
 * [OCP Cluster Deployment](#ocp-cluster-deployment)
   * [Accessing the Bootstrap Node](#accessing-the-bootstrap-node)
 * [Cluster Decommission Instructions](#cluster-decommission-instructions)
@@ -24,11 +24,12 @@
   * [Variables Definition](#variables-definition)
     * [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses)
   * [Application Gateway Deployment](#application-gateway-deployment)
-    * [Obtaining the Certificate for API and Application Secure Routes](#obtaining-the-certificate-for-api-and-application-secure-routes)
+    * [Obtaining the Certificates for API and Application Secure Routes](#obtaining-the-certificates-for-api-and-application-secure-routes)
   * [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway)
   * [Updating the Configuration](#updating-the-configuration)
   * [Application Gateway Decommission](#application-gateway-decommission)
 * [Configuring DNS resolution with dnsmasq](#configuring-dns-resolution-with-dnsmasq)
+* [Obtaining Certificates from Let's Encrypt](#obtaining-certificates-from-let's-encrypt)
 
 ## Introduction
 
@@ -79,8 +80,8 @@ platform:
 ```
 ## Prerequisites
 Before attempting to deploy the Openshift cluster make sure to fulfill the following prerequisites:
-* A public DNS zone must exist in Azure and the account used to deploy the cluster must have permissions to create records in it. [More details](#https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-network-config_installing-azure-account)
-* The default limits in a newly created Azure account are too low to deploy an Openshift cluster, make sure this limits have been extended. [More details](#https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-limits_installing-azure-account)
+* If the cluster being installed is public, a similarly public DNS zone must exist in Azure, and the account used to install the cluster must have permissions to create records in it. [More details](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-network-config_installing-azure-account). If the cluster is private no DNS public zone is required.
+* The default limits in a newly created Azure account are too low to deploy an Openshift cluster, make sure this limits have been extended. [More details](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-limits_installing-azure-account)
 * Create a service principal with the roles of _Owner_ and _User Access Administrator_, and use it to deploy the Openshift cluster. [Creating a Service Principal](#creating-a-service-principal)
 * A working terraform installation in the host where the infrastructure is going to be deployed from. [Terraform installation](#terraform-installation)
 * A working ansible installation in the host where the infrastructure is going to be deployed from.
@@ -221,7 +222,7 @@ Some of the resources created by terraform can be adjusted via the use of variab
 
     No default value so it must be specified everytime the _terraform_ command is executed. 
 
-        cluster_name = jupiter
+        cluster_name = "upiter"
 
 * **region_name**.- Contains the short name of the Azure region where the resources, and the Openshift cluster, will be created. The short name of the regions can be obtained from the __Name__ column in the output of the command `az account list-locations -o table`.  
 
@@ -241,7 +242,7 @@ Some of the resources created by terraform can be adjusted via the use of variab
 
     Default value: _public_
 
-        cluster_scope = public
+        cluster_scope = "public"
 
 * **outbound_type**.- Defines the networking method that cluster nodes use to connect to the Internet (outbound traffic).  
 
@@ -249,7 +250,7 @@ Some of the resources created by terraform can be adjusted via the use of variab
 
     Default value:_LoadBalancer_.
 
-        outbound_type = LoadBalancer
+        outbound_type = "LoadBalancer"
 
 #### SSH key
 Regardless of whether the the bastion infrastructure is going to be created or not ([Conditionally creating the bastion infrastructure](#conditionally-creating-the-bastion-infrastructure)), an ssh key is needed to connect to the bastion VM and the OCP cluster nodes.
@@ -328,7 +329,7 @@ The variable is called __create_bastion__ and its default value is __true__, the
 $ terraform apply -var="create_bastion=false"
 ```
 
-WARNING.  Once the resources are created, the Terraform directory contains the state information that would be required to update or remove these resources using terraform.  Keep this directory and its files safe
+WARNING.  Once the resources are created, the Terraform directory contains the state information that would be required to update or remove these resources using terraform.  Keep this directory and its files safe.
 
 ### Destroying the bastion infrastructure
 The bastion infrastructure is created by an independent module so it can be destroyed without affecting the rest of the resources.  This is useful to reduce costs and remove unused resources once the Openshift cluster has been deployed.
@@ -479,7 +480,7 @@ api_lb_ip = "10.0.1.4"
 ```
 apps_lb_ip = "10.0.2.8"
 ```
-* **api_cert_passwd**.- Password to decrypt PKCS12 certificate for API listener. 
+* **api_cert_passwd**.- Password to decrypt PKCS12 certificate file for the API listener. 
 
     This variable is not required if the API endpoint is not going to be made public.
 
@@ -487,7 +488,7 @@ apps_lb_ip = "10.0.2.8"
 ```
 api_cert_passwd = "l3l#ah91"
 ```
-* **apps_cert_passwd**.- Password to decrypt PKCS12 certificate for APPS listener.  
+* **apps_cert_passwd**.- Password to decrypt PKCS12 certificate file for the APPS listener.  
 
     This variable is always required.
 
@@ -556,7 +557,7 @@ Follow the next steps to create the Application Gateway:
 
     The API endpoint can be publish or unpublish at anytime just by changing the value of the **publish_api** variable and rerunning the AppGateway terraform module.  In case of publishing the API, the variables **api_lb_ip**; **api_cert_passwd** must be defined and the certificate file __api-cert.pfx__ must be put in place.
 
-* Obtain the IP addresses to assing to **apps_lb_ip**, and to **api_lb_api** if required, instructions on how to get this information can be found in the section [Variables definition](#variables-definition).
+* Obtain the IP addresses to assign to **apps_lb_ip**, and to **api_lb_api** if required, instructions on how to get this information can be found in the section [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses).
 
 * Define the variable **ssl_listener_hostnames** with a list of external FQDNs hostnames defining the secure application routes to be published using the _https_ protocol, as described in the section [Variables Definition](#variables-definition) 
 
@@ -564,7 +565,7 @@ Follow the next steps to create the Application Gateway:
 
 * Define the variable **cluster_domain** with the DNS domain used by the Openshift cluster.
 
-* Obtain the certificates required to encrypt the secure connections with the cluster.  Two sets of certificates are required, one for the API endpoint and another one for the applications using secure routes.  If the API endpoint is not public, its certificate set is not required.  See [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses) for instructions on how to obtain the certificates. 
+* Obtain the certificates required to encrypt the secure connections with the cluster.  Two sets of certificates are required, one for the API endpoint and another one for the applications using secure routes.  If the API endpoint is not public, its certificate set is not required.  See [Obtaining the Certificates for API and Application Secure Routes](#obtaining-the-certificates-for-api-and-application-secure-routes). 
 
     The terraform template expects to find the API endpoint PKCS12 certificate in a file called __api-cert.pfx__ and the PKCS12 certificate for application secure routes in a file called __apps-cert.pfx__, both in the directory __Terraform/AppGateway__.
 
@@ -612,7 +613,7 @@ To stablish the encrypted end to end connections for API and secure routes two c
 
     The Application Gateway terminates the TLS connections so it needs a full certificate, containing the private and public keys.  
 
-    This certificate can be obtained from a well known certification authority or generated internally.  This instructions show how to obtain and reuse these certificates by extracting them from the API endpoint and the default ingress controller, but a newly created certificate is also valid as long as it is a wildcard certificate.
+    This certificate can be obtained from a well known certification authority or generated internally.  This instructions show how to obtain these certificates by extracting them from the API endpoint and the default ingress controller, but a new certificate created by a CA is also, see [Obtaining Certificates from Let's Encrypt](#obtaining-certificates-from-let's-encrypt) to see an example on how to obtain these certificates from a well known Certification Authority.
 
     The certificate used to access application secure routes should be valid for the DNS domain of the applications, but the external and internal domains don't need to be the same, for example the external hostname of an application could be _app1.example.com_ and its internal name _app1.apps.ocp4.jupiter.net_, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind the application gateway and can simplify the migration of applications from one cluster to another.  
 
@@ -807,6 +808,122 @@ The resolution should be working now:
 $ dig +short api.jupiter.example.com
 20.97.425.13
 ```
+## Obtaining Certificates from Let's Encrypt
+A popular option to get certificates that are accepted by most clients and browsers to Encrypt https services is to get them from [Let's Encrypt](https://letsencrypt.org), a certificatin authority (CA) that issues these certificates free of charge.
+
+The main prerequisite to be able to obtain let's Encrypt certificates for a public DNS name is to demonstrate control over such domain. Let's Encrypt does not issue certificates for private DNS domains.
+
+In this section an step by step example on how to obtain a let's Encrypt certificate to be used with the Application Gateway will be showwn.
+
+An ACME client is required to communicate with Let's Encrypt to request and receive the certificate.  Several [clients are available](https://letsencrypt.org/docs/client-options/) in the Let's Encrypt site, for this example the [acme.sh](https://github.com/acmesh-official/acme.sh) shell script client will be used.
+
+Install the acme.sh client:
+```
+$ git clone https://github.com/acmesh-official/acme.sh.git
+Cloning into 'acme.sh'...
+...
+
+$ cd acme.sh
+$ ./acme.sh --install -m my@example.com
+```
+Source the ~/.bashrc file or reopen the terminal to define tha acme.sh alias.
+
+The installation creates a cronjob in the user's contrab to renew certificates regularly, if this cronjob is not wanted, it can be removed:
+```
+$ acme.sh --uninstall-cronjob
+```
+There are different methods to request a certificate with the _acme.sh_ client, in this example automatic [DNS API integration with Azure](https://github.com/acmesh-official/acme.sh/wiki/How-to-use-Azure-DNS) will be used.  The method to prove control of the DNS zone is basically as follows: The acme.sh client gets a challenge value from the CA, then it must create a TXT record in the public DNS zone whose value is the challenge received, the CA will verify that the record has been created in the public zone and the challenge matches the value sent.  If the check passes the certificate is issued.
+
+To use this method a service principal with permissions to create records in the DNS zone is required.  To create the service principal with the _az_ client run the following commands:
+* Log in to Azure  
+
+        $ az login
+
+* List the DNS public zones for this azure account
+
+        $ az network dns zone list
+        [
+          {
+            "etag": "00000002-0000-0000-f641-73c64955d301",
+            "id": "/subscriptions/12345678-9abc-def0-1234-567890abcdef/resourceGroups/exampledns_rg/providers/Microsoft.Network/dnszones/example.com",
+            "location": "global",
+            "maxNumberOfRecordSets": 5000,
+            "name": "example.com",
+            "nameServers": [
+              "ns1-02.azure-dns.com.",
+              "ns2-02.azure-dns.net.",
+              "ns3-02.azure-dns.org.",
+              "ns4-02.azure-dns.info."
+            ],
+            "numberOfRecordSets": 11,
+            "resourceGroup": "exampledns_rg",
+            "tags": {},
+            "type": "Microsoft.Network/dnszones"
+          }
+        ]
+
+* Create the service principal with the role _DNS Zone Contributor_ and the scope obtained for the DNS zone as "id" in the previous command:
+
+        $ az ad sp create-for-rbac --name  "AcmeDnsValidator" --role "DNS Zone Contributor" --scopes /subscriptions/12345678-9abc-def0-1234-567890abcdef/resourceGroups/exampledns_rg/providers/Microsoft.Network/dnszones/example.com
+        {
+          "appId": "3b5033b5-7a66-43a5-b3b9-a36b9e7c25ed",
+          "displayName": "AcmeDnsValidator",
+          "name": "http://AcmeDnsValidator",
+          "password": "1b0224ef-34d4-5af9-110f-77f527d561bd",
+          "tenant": "11111111-2222-3333-4444-555555555555"
+        }
+
+* Define the following environment variables with the information obtained from the previous commands, this will allow the acme.sh client to authenticate using the service principal _AcmeDnsValidator_ created before:
+
+        $ export AZUREDNS_SUBSCRIPTIONID="12345678-9abc-def0-1234-567890abcdef"
+        $ export AZUREDNS_TENANTID="11111111-2222-3333-4444-555555555555"
+        $ export AZUREDNS_APPID="3b5033b5-7a66-43a5-b3b9-a36b9e7c25ed"      
+        $ export AZUREDNS_CLIENTSECRET="1b0224ef-34d4-5af9-110f-77f527d561bd"
+
+* Request the certificate from Let's Encrypt.  In this case the request is for a wildcard certificate, and the CA used is letsencrypt ([other CAs are available](https://github.com/acmesh-official/acme.sh/wiki/Server))
+
+    The last messages show where the certificate files are stored.
+
+        $ acme.sh --issue --server letsencrypt --dns dns_azure -d '*.apps.example.com'
+         Using CA: https://acme-v02.api.letsencrypt.org/directory                                                                                                       
+         Create account key ok.                                                                                                                                         
+         Registering account: https://acme-v02.api.letsencrypt.org/directory                                                                                            
+         Registered                                                                                                                                                     
+         ACCOUNT_THUMBPRINT='gxXGPZvuEACxkMfyhDqqlzgT7c8jxvsVwqBmZcabI'                                                                                               
+         Creating domain key                                                                                                                                            
+         The domain key is here: /home/azureuser/.acme.sh/*.apps.example.com/*.apps.example.com.key                                                                   
+         Single domain='*.apps.example.com'                                                                                                                            
+         Getting domain auth token for each domain                                                                                                                      
+         Getting webroot for domain='*.apps.example.com'                                                                                                               
+         Adding txt value: 82UkSpjFeMHsFMHuHhULsdGk1Y1FH_bdNAx6DJE5A for domain:  _acme-challenge.apps.example.com                                                   
+         validation value added                                                                                                                                         
+         The txt record is added: Success.
+         Let's check each DNS record now. Sleep 20 seconds first.
+         You can use '--dnssleep' to disable public dns checks.
+         See: https://github.com/acmesh-official/acme.sh/wiki/dnscheck
+         Checking apps.example.com for _acme-challenge.apps.example.com
+         Domain apps.example.com '_acme-challenge.apps.example.com' success.
+         All success, let's return
+         Verifying: *.apps.example.com
+         Pending, The CA is processing your order, please just wait. (1/30)
+         Success
+         Removing DNS records.
+         Removing txt: 82UkSpjFeMHsFMHuHhULsdGk1Y1FH_bdNAx6DJE5A for domain: _acme-challenge.apps.example.com
+         validation record removed
+         Removed: Success
+         Verify finished, start to sign.
+         Lets finalize the order.
+         Le_OrderFinalize='https://acme-v02.api.letsencrypt.org/acme/finalize/337899004/51790894210'
+         Downloading cert.
+         Le_LinkCert='https://acme-v02.api.letsencrypt.org/acme/cert/401ff4c44a4557335b0ed9f1c8ddcc482d'
+         Cert success.
+         ...
+         Your cert is in: /home/azureuser/.acme.sh/*.apps.example.com/*.apps.example.com.cer
+         Your cert key is in: /home/azureuser/.acme.sh/*.apps.example.com/*.apps.example.com.key
+         The intermediate CA cert is in: /home/azureuser/.acme.sh/*.apps.example.com/ca.cer
+         And the full chain certs is there: /home/azureuser/.acme.sh/*.apps.example.com/fullchain.cer
+
+
 
 ## TODO
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
@@ -819,4 +936,3 @@ $ dig +short api.jupiter.example.com
 
 @#When the secret associated with the service principal expires, can the OCP cluster still operate and create new resources like an ingress controller or be updated?#@
 
-Imh7Q~jIu6M26bXewRrEZuz1uOi1Bch.bwxqK
