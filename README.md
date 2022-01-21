@@ -37,7 +37,7 @@ The instructions and code in this repository can be used as an example to create
 
 The Openshift cluster deployed using this repository can be public or private:
 * A [public](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-vnet.html) cluster is fully accessible from the Internet.  
-* A [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html) cluster is only accessible from the VNet where it is created unless additional configurations are put in place to allow clients to connect from other VNets or from the Internet.  This repository provides an [example of such configuration](#accessing-a-private-openshift-cluster-from-the-internet) using an [Azure Application Gateway](#https://docs.microsoft.com/en-us/azure/application-gateway/overview) to make public the private cluster, or parts of it.  A private cluster must be installed from a host in the same VNet where the cluster will run so the installer can resolve the DNS records served by the private DNS zone.
+* A [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html) cluster is only accessible from the VNet where it is created unless additional configurations are put in place to allow clients to connect from other VNets or from the Internet.  This repository provides an [example of such configuration](#accessing-a-private-openshift-cluster-from-the-internet) using an [Azure Application Gateway](#https://docs.microsoft.com/en-us/azure/application-gateway/overview) to make the private cluster or parts of it public.  A private cluster must be installed from a host in the same VNet where the cluster will run so the installer can resolve the DNS records served by the private DNS zone.
 
     Some of the reasons to create a private cluster and then make it public instead of install it as a public cluster from the beginning are:
 
@@ -449,7 +449,7 @@ $ terraform destroy -var region_name="germanywestcentral" -var cluster_scope="pr
 ## Accessing a Private OpenShift Cluster from The Internet
 If the Openshift cluster deployed following the instructions in this repository is private, the API and any applications deployed in it are not accessible from the Internet.  This may be the desired state right after installation, but at a later time, when the cluster is fully set up and production applications are ready, it is possible that a particular set of applications and even the API endpoint are expected to be publicly available.  
 
-There are many options to make the applications and API endpoint publicly available, this repository includes a terraform module that can be used for such purpose, it can be found in the directory __Terraform/AppGateway__.  This module creates an [Azure application gateway](https://docs.microsoft.com/en-us/azure/application-gateway/) that provides access to the applications running in the cluster, and optionally to the API endpoint.
+There are many options to make the applications and API endpoint publicly available, this repository includes a terraform module that can be used for such purpose.  This module creates an [Azure application gateway](https://docs.microsoft.com/en-us/azure/application-gateway/) that provides access to the applications running in the cluster, and optionally to the API endpoint.
 
 To successfully deploy the Application Gateway using the terraform template in this repository, the Azure infrastructure must also be deployed using the terraform templates in this repository, and the Openshift cluster must be already running.
 
@@ -721,10 +721,10 @@ When the Application Gateway is deployed, the Openshift cluster can be accessed 
 ```
 $ oc login -u kubeadmin https://api.jupiter.example.com:6443
 ```
-* **Access to non secure applications**.- Any application route created in the Openshift cluster, using the _http_ protocol is accessible from the internet through the Application Gateway if a wildcard DNS entry is defined in the public DNS zone, if specific DNS records are created for every application, when the route hostname can be resolved, so the application will be accessible, no additional configuration is required in the Application Gateway.
+* **Access to non secure applications**.- Any non secure application routes created in the Openshift cluster using the _http_ protocol are accessible by default through the Application Gateway.  The only requirement is that the hostname defined in the route can be resolved either by a wildcard DNS entry or by specific DNS records, no additional configuration is required in the Application Gateway.
 
     For example if the wildcard DNS domain is valid for the domain _\*.apps.jupiter.example.com_, the cluster web console can be accessed at _https://console-openshift-console.apps.jupiter.example.com_
-* **Access to secure applications**.- To enable access to an application route that uses the _https_ protocol, its external FQDN hostname must be included in the list variable __ssl_listener_hostnames__.  
+* **Access to secure applications**.- Secure application routes are not accessible by default through the Application Gateway.  To enable access to a secure application route that uses the _https_ protocol, its external FQDN hostname must be included in the list variable __ssl_listener_hostnames__.  
 
 Some points to highlighting here are:
 
