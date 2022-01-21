@@ -29,7 +29,7 @@
   * [Updating the Configuration](#updating-the-configuration)
   * [Application Gateway Decommission](#application-gateway-decommission)
 * [Configuring DNS resolution with dnsmasq](#configuring-dns-resolution-with-dnsmasq)
-* [Obtaining Certificates from Let's Encrypt](#obtaining-certificates-from-let's-encrypt)
+* [Obtaining Certificates from Let's Encrypt](#obtaining-certificates-from-lets-encrypt)
 
 ## Introduction
 
@@ -613,7 +613,7 @@ To stablish the encrypted end to end connections for API and secure routes two c
 
     The Application Gateway terminates the TLS connections so it needs a full certificate, containing the private and public keys.  
 
-    This certificate can be obtained from a well known certification authority or generated internally.  This instructions show how to obtain these certificates by extracting them from the API endpoint and the default ingress controller, but a new certificate created by a CA is also, see [Obtaining Certificates from Let's Encrypt](#obtaining-certificates-from-let's-encrypt) to see an example on how to obtain these certificates from a well known Certification Authority.
+    This certificate can be obtained from a well known certification authority or generated internally.  This instructions show how to obtain these certificates by extracting them from the API endpoint and the default ingress controller, but a new certificate created by a CA is also, see [Obtaining Certificates from Let's Encrypt](#obtaining-certificates-from-lets-encrypt) to see an example on how to obtain these certificates from a well known Certification Authority.
 
     The certificate used to access application secure routes should be valid for the DNS domain of the applications, but the external and internal domains don't need to be the same, for example the external hostname of an application could be _app1.example.com_ and its internal name _app1.apps.ocp4.jupiter.net_, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind the application gateway and can simplify the migration of applications from one cluster to another.  
 
@@ -808,7 +808,7 @@ The resolution should be working now:
 $ dig +short api.jupiter.example.com
 20.97.425.13
 ```
-## Obtaining Certificates from Let's Encrypt
+## Obtaining Certificates from Lets Encrypt
 A popular option to get certificates that are accepted by most clients and browsers to Encrypt https services is to get them from [Let's Encrypt](https://letsencrypt.org), a certificatin authority (CA) that issues these certificates free of charge.
 
 The main prerequisite to be able to obtain let's Encrypt certificates for a public DNS name is to demonstrate control over such domain. Let's Encrypt does not issue certificates for private DNS domains.
@@ -929,8 +929,6 @@ To use this method a service principal with permissions to create records in the
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
 
 @#Why non secure application routes (http) are all available instead of using conditional publication like secure routes do?#@
-
-@#Using let's encrypt to add a valid certificate to the Application Gateway#@
 
 @#Open the bugzilla for the private clusters that need to specify the public DNS resource group#@
 
