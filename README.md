@@ -41,11 +41,11 @@ The Openshift cluster deployed using this repository can be public or private:
 
     Some of the reasons to create a private cluster and then make it public instead of install it as a public cluster from the beginning are:
 
-    * Hidding the complex DNS domain used by the cluster and instead publish a simpler one (myapp.apps.cluster1.example.com vs myapp.example.com). 
+    * Hiding the complex DNS domain used by the cluster and instead publish a simpler one (myapp.apps.cluster1.example.com vs myapp.example.com). 
     * Limiting the number of public applications to a subset of the all applications running in the cluster. 
     * Keeping the API endpoint private. 
     * Keeping the cluster private until it is fully configured and ready for use. 
-    * Hidding a multicluster infrastructure behind a single point of access.
+    * Hiding a multi cluster infrastructure behind a single point of access.
 
 In regards to the outgoing network traffic, the Openshift cluster created using this repository can reach out to the Internet and connect to external services, this simplifies installation and container image pulling from external repositories for example.  Two possible configuration options for outgoing network traffic can be used here: 
 * Load Balancer.- The Openshift installer creates a load balancer with outbound rules to allow connections from the cluster to the Internet
@@ -59,7 +59,7 @@ The VNet and related Azure resources required to deploy the OCP cluster are crea
 * Network security groups.- One for each of the above subnets with its own security rules.
 * Resources and configuration for the oubound network traffic from the cluster nodes to the Internet.- The requirement for these resources depends on the value of the variable [outboundType](#outbound-traffic-configuration) in the install-config.yaml file.
 
-To make the IPI installer aware that the above resource already exist and should not be created during cluster intallation the following variables must be defined in the __platform.azure__ section in the install-config.yaml file:
+To make the IPI installer aware that the above resource already exist and should not be created during cluster installation the following variables must be defined in the __platform.azure__ section in the install-config.yaml file:
 
 * networkResourceGroupName.- Contains the name of the resource group where the previously mentioned, user provided network resources exist.
 * virtualNetwork.- The name of the VNet to be used
@@ -81,7 +81,7 @@ platform:
 ## Prerequisites
 Before attempting to deploy the Openshift cluster make sure to fulfill the following prerequisites:
 * If the cluster being installed is public, a similarly public DNS zone must exist in Azure, and the account used to install the cluster must have permissions to create records in it. [More details](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-network-config_installing-azure-account). If the cluster is private no DNS public zone is required.
-* The default limits in a newly created Azure account are too low to deploy an Openshift cluster, make sure this limits have been extended. [More details](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-limits_installing-azure-account)
+* The default limits in a newly created Azure account are too low to deploy an Openshift cluster, make sure these limits have been extended. [More details](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-limits_installing-azure-account)
 * Create a service principal with the roles of _Owner_ and _User Access Administrator_, and use it to deploy the Openshift cluster. [Creating a Service Principal](#creating-a-service-principal)
 * A working terraform installation in the host where the infrastructure is going to be deployed from. [Terraform installation](#terraform-installation)
 * A working ansible installation in the host where the infrastructure is going to be deployed from.
@@ -115,11 +115,13 @@ Check that it is working:
 For more details visit the [official Openshift documentation](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-account.html#installation-azure-service-principal_installing-azure-account)
 
 These instructions use the _az_ command line tool:
-* Create the service principal and assign it the _Contributor_ role, in the following example command it gets the name *ocp_install_sp*. 
+* Create the service principal and assign it the _Contributor_ role.  The expiration date for the secret associated with the SP is set to 20 years to avoid problems with expired credentials after one year.  In this example the service principal is named *ocp_install_sp*. 
 
-    The creation of the service principal will generate a secret to auhenticate it with Azure Actuve Directory, by default this secret is valid for one year.  Save the _appId_ and password values, they are needed in following steps:
+    The creation of the service principal will generate a secret to authenticate it with Azure Active Directory, by default this secret is valid for one year which is a short time for most clusters, to avoid this limitation a expiry date of 20 years is used here.  
 
-        $ az ad sp create-for-rbac --role Contributor --name ocp_install_sp
+    Save the _appId_ and password values, they are needed in following steps:
+
+        $ az ad sp create-for-rbac --role Contributor --name ocp_install_sp --years 20
         {
           "appId": "2bbe757d-a3f4-45eb-8a83-52e3c67e6ac7",
           "displayName": "ocp49-installer",
@@ -152,9 +154,9 @@ These instructions use the _az_ command line tool:
 ## Outbound traffic configuration
 The network resources and configuration allowing the cluster nodes to connect to the Internet (outbound traffic) depend on the value of the variable __outboundType__ in the install-config.yaml file. This configuration is independent from that of the inbound cluster traffic, whether this is a public or private cluster.
 
-The __outboundType__ variable can only take two possible values: Loadbalancer and UserDefinedRouting:
-* **LoadBalancer**.- The IPI installer will create an outbound rule in the public load balancer to allow outgoing connections from the nodes to the Internet.  If the the cluster is public, the load balancer is used for routing both inbound traffic from the Internet to the nodes and outbound traffic from the nodes to the Internet.  If the cluster is private there is no inbound traffic from the Internet to the nodes, but the load balancer will still be created and will only be used for outbound traffic from the nodes to the Internet.
-* **UserDefinedRouting**.- The necessary infrastructure and configuration to allow the cluster nodes to connect to the internet must be in place before running the IPI installer, different options exit in Azure for this: NAT gateway; Azure firewall; Proxy server; etc.  
+The __outboundType__ variable can only take two possible values: LoadBalancer and UserDefinedRouting:
+* **LoadBalancer**.- The IPI installer will create an outbound rule in the public load balancer to allow outgoing connections from the nodes to the Internet.  If the cluster is public, the load balancer is used for routing both inbound traffic from the Internet to the nodes and outbound traffic from the nodes to the Internet.  If the cluster is private there is no inbound traffic from the Internet to the nodes, but the load balancer will still be created and will only be used for outbound traffic from the nodes to the Internet.
+* **UserDefinedRouting**.- The necessary infrastructure and configuration to allow the cluster nodes to connect to the internet must be in place before running the IPI installer, different options exist in Azure for this: NAT gateway; Azure firewall; Proxy server; etc.  
 
 When using _UserDefinedRouting_ in a private cluster, a load balancer is still created but contains no frontend IP address, load balancing rules or outbound rules, so it serves no purpose.  A fully functional internal load balancer is always created for access to the API service and applications only from inside the VNet.
 
@@ -165,7 +167,7 @@ In this repository the terraform variable **outbound_type** is used to select th
 The deployment process consists of the following points:
 
 * [Create the infrastructure components in Azure](#create-the-infrastructure-with-terraform).- The VNet and other components are created using terraform.
-* [Set up installation environment](#set-up-the-bastion-host-to-install-openshift).- The bastion host is prepared to lauch the openshift installer from it.
+* [Set up installation environment](#set-up-the-bastion-host-to-install-openshift).- The bastion host is prepared to launch the openshift installer from it.
 * [Run the Openshift installer](#ocp-cluster-deployment)
 
 ### Create the infrastructure with Terraform
@@ -214,7 +216,7 @@ Before running terraform to create resources, a user with enough permissions mus
 ```  
 $ az login
 ```  
-Once successfully loged in, the file __~/.azure/azureProfile.json__ is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  This credentials are valid for the following days so no further authentication with Azure is required for a while.
+Once successfully logged in, the file __~/.azure/azureProfile.json__ is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  These credentials are valid for the following days so no further authentication with Azure is required for a while.
 
 #### Variables definition
 Some of the resources created by terraform can be adjusted via the use of variables.  These variables can be defined in the command line or in a file:
@@ -222,7 +224,7 @@ Some of the resources created by terraform can be adjusted via the use of variab
 
     No default value so it must be specified everytime the _terraform_ command is executed. 
 
-        cluster_name = "upiter"
+        cluster_name = "jupiter"
 
 * **region_name**.- Contains the short name of the Azure region where the resources, and the Openshift cluster, will be created. The short name of the regions can be obtained from the __Name__ column in the output of the command `az account list-locations -o table`.  
 
@@ -275,7 +277,7 @@ Do you want to perform these actions?
 
   Enter a value: yes
 ```  
-Alternatively if the variables were defined in a file called *infra_vars* use a commnad like:
+Alternatively if the variables were defined in a file called *infra_vars* use a command like:
 ```  
 $ cat infra_vars 
 cluster_name = "bell"
@@ -308,7 +310,7 @@ The bastion infrastructure is created from a module in terraform so it can be [c
 
 The bastion VM gets both public and private IP addresses assigned to its single NIC. The network security group is directly associated with this NIC.
 
-The operating system disk image used in the bation VM is the latest version of RHEL 8.  The same definition can be used irrespective of the region where the resources will be deployed.  The az cli commands used to collect the information for the definition can be found [here](https://docs.microsoft.com/en-us/cli/azure/vm/image?view=azure-cli-latest), for example:
+The operating system disk image used in the bastion VM is the latest version of RHEL 8.  The same definition can be used irrespective of the region where the resources will be deployed.  The az CLI commands used to collect the information for the definition can be found [here](https://docs.microsoft.com/en-us/cli/azure/vm/image?view=azure-cli-latest), for example:
 
 ```
 $ az vm image list-publishers
@@ -321,9 +323,9 @@ $ az vm image show -l "West Europe" -p RedHat -s 8-lvm-gen2 -f RHEL --version "8
 To access the bastion VM using ssh, a public ssh key is injected during creation, this ssh key is expected to be found in a file called __ocp-install.pub__ in the __Terraform/Bastion__ directory.
 
 ### Conditionally creating the bastion infrastructure
-A boolean variable is used to decide if the bastion infrastructure will be created or not.  The bastion infrastructure may not be required for example because the Openshift intaller is going to be run from an already existing host.
+A boolean variable is used to decide if the bastion infrastructure will be created or not.  The bastion infrastructure may not be required for example because the Openshift installer is going to be run from an already existing host.
 
-The variable is called __create_bastion__ and its default value is __true__, the bastion will be created, to skip the creation of the bastion infrastructure assing the value __false__ to the variable:
+The variable is called __create_bastion__ and its default value is __true__, the bastion will be created, to skip the creation of the bastion infrastructure assign the value __false__ to the variable:
 
 ```
 $ terraform apply -var="create_bastion=false"
@@ -345,22 +347,22 @@ __WARNING__ If the __-target__ option is not used, terraform will delete all res
 The option `-target module.<name>` is used to affect only a particular module in the terraform command
 
 ## Prepare the bastion host to install Openshift
-Ansible is used to prepare the bastion host so the Openshift 4 installation can be run from it.  Before running the playbook some prerequisites must be fullfilled:
+Ansible is used to prepare the bastion host so the Openshift 4 installation can be run from it.  Before running the playbook some prerequisites must be fulfilled:
 
 Define the following variables in the file **Ansible/group_vars/all/cluster-vars**:
-* **DNS base domain**.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a _public_ cluster, this DNS domain must exist in an Azure resource group.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as `<cluster name>.<base domain>` so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assing the domain name to the variable **base_domain**.
+* **DNS base domain**.- This domain is used to access the Openshift cluster and the applications running in it.  In the case of a _public_ cluster, this DNS domain must exist in an Azure resource group.  In the case of a private cluster, a private domain will be created, there is no need to own that domain since it will only exist in the private VNet where the cluster is deployed.  The full domain is built as `<cluster name>.<base domain>` so for example if cluster name is __jupiter__ and base domain is __example.com__ the full cluster DNS domain is __jupiter.example.com__.  Assign the domain name to the variable **base_domain**.
 ```
 base_domain: example.com
 ```
-* **Base domain resource group**.- The Azure resource group name where the base domain exists.  In a private cluster this variable is not required.  Assing the name to the variable **base_domain_resource_group**
+* **Base domain resource group**.- The Azure resource group name where the base domain exists.  In a private cluster this variable is not required.  Assign the name to the variable **base_domain_resource_group**
 ```
 base_domain_resource_group: waawk-dns
 ```
-* **Number of compute nodes**.- The number of compute nodes that the installer will create. Assing the number to the variable **compute_replicas**.
+* **Number of compute nodes**.- The number of compute nodes that the installer will create. Assign the number to the variable **compute_replicas**.
 ```
 compute_replicas: 3
 ```
-Download the Pull secret, Openshift installer and oc cli from [here](https://cloud.redhat.com/openshift/install), uncompress the installer and oc cli, and copy all these files to __Ansible/ocp_files/__
+Download the Pull secret, Openshift installer and oc CLI from [here](https://cloud.redhat.com/openshift/install), uncompress the installer and oc cli, and copy all these files to __Ansible/ocp_files/__
 
 The inventory file for ansible containing the _[bastion]_ group is created by the ansible playbook itself so there is no need to create this file.
 
@@ -388,7 +390,7 @@ jupiter/  oc  openshift-install
 ```
 The directory contains the configuration file __install-config.yaml__, review and modify the file as required.
 
-Before running the installer backup the install-config.yaml because it is removed durign the installation process.  It is also recommended to run the installer in a tmux session so the terminal doesn't get blocked during more than 40 minutes, which is the time the installation needs to complete.
+Before running the installer, backup the install-config.yaml because it is removed during the installation process.  It is also recommended to run the installer in a tmux session so the terminal doesn't get blocked for more than 40 minutes, which is the time the installation needs to complete.
 
 ```
 $ cp jupiter/install-config.yaml .
@@ -415,9 +417,9 @@ $ tail -f OCP4/jupiter/.openshift_install.log
 ### Accessing the Bootstrap Node
 In the first stages of the installation process a bootstrap node is created.  Sometimes it maybe desired to connect to this bootstrap node to watch this part of the installation or for debugging reasons.
 
-The IPI installer creates a network security group and adds a rule to allow ssh connection to the boostrap node, however in an installation where the VNet, subnets, network security groups, etc. are provided by the user, the network security group created by the IPI installer is only applied to the bootstrap's network interface and not to the subnet where it is "connected".
+The IPI installer creates a network security group and adds a rule to allow ssh connection to the bootstrap node, however in an installation where the VNet, subnets, network security groups, etc. are provided by the user, the network security group created by the IPI installer is only applied to the bootstrap's network interface and not to the subnet where it is "connected".
 
-On the other hand, the network security group created by terraform in this repository does not contain a similar security rule allowing ssh connctions to the bootstrap host, this is to increase security, specially considering that the bootstrap node is ephemeral and will be destroyed after it serves it purpose.
+On the other hand, the network security group created by terraform in this repository does not contain a similar security rule allowing ssh connections to the bootstrap host, this is to increase security, specially considering that the bootstrap node is ephemeral and will be destroyed after it serves it purpose.
 
 The bootstrap node is therefore not accessible via ssh from the Internet.
 
@@ -498,7 +500,7 @@ apps_cert_passwd = "er4a9$C"
 ```
 * **ssl_listener_hostnames**.- List of external FQDN hostnames used to access the secure application routes.  External and internal domains don't need to match (see [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway) for more information).  If this variable is not defined, no secure routes will be published.
 
-    This variable in not required.
+    This variable is not required.
 
     No default value.
 ```
@@ -601,14 +603,14 @@ When the variables are defined and the certificate files are in place the Applic
 ```
 $ terraform apply -var-file AppGateway_vars
 ```
-The deployment will take a few minutes, but it could take a little longer to be operational until the health probes verify that the banckend pools can receive requests.
+The deployment will take a few minutes, but it could take a little longer to be operational until the health probes verify that the backend pools can receive requests.
 
 To access the cluster check the section [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway).
 
 #### Obtaining the Certificate for API and Application Secure Routes
-Connections to the API and the secure application routes are encrypted end to end, from the client to the Openshift cluster.  The Application Gateway terminates all TLS connections and stablish new ones with the OCP cluster.  
+Connections to the API and the secure application routes are encrypted end to end, from the client to the Openshift cluster.  The Application Gateway terminates all TLS connections and establishes new ones with the OCP cluster.  
 
-To stablish the encrypted end to end connections for API and secure routes two certificates are required:
+To establish the encrypted end to end connections for API and secure routes two certificates are required:
 * **A PKCS12 (PFX) file**.- Contains the public and private parts of the certificate used to encrypt connections between clients and the application gateway.  
 
     The Application Gateway terminates the TLS connections so it needs a full certificate, containing the private and public keys.  
@@ -650,9 +652,9 @@ To stablish the encrypted end to end connections for API and secure routes two c
 
    The terraform template expects to find the API endpoint PKCS12 certificate in a file called __api-cert.pfx__ and the PKCS12 certificate for application secure routes in a file called __apps-cert.pfx__, both in the directory __Terraform/AppGateway__.
    
-* **An x509 certificate file**.- This file must contain the public part of the Certification Authority (CA) certificate used to sign the certificate served by the API endpoint and Openshift ingress controller respectively.  This certificate is used to verify the authenticity of the x509 certificate shown by the API endpoint and the ingress controller when an encrypted connection is stablished between the Application Gateway and the API endpoint or the ingress controller. 
+* **An x509 certificate file**.- This file must contain the public part of the Certification Authority (CA) certificate used to sign the certificate served by the API endpoint and Openshift ingress controller respectively.  This certificate is used to verify the authenticity of the x509 certificate shown by the API endpoint and the ingress controller when an encrypted connection is established between the Application Gateway and the API endpoint or the ingress controller. 
 
-    This certificate must be extracted from the OCP cluster.  In this instructions the _openssl_ tool will be used to obtain these certificates.
+    This certificate must be extracted from the OCP cluster.  In these instructions the _openssl_ tool will be used to obtain these certificates.
 
     **To obtain the CA certificate from the API endpoint** use a command like the following.  This certificate is not required if the API endpoint is not public.  Replace the cluster domain name in the example for that of the actual cluster.  The output contains, among other information, a certificate chain:
 
@@ -684,7 +686,7 @@ To stablish the encrypted end to end connections for API and secure routes two c
 
         $ openssl x509 -in api-root-CA.cer -text -noout
 
-    **To obtain the CA certificate from the ingress controller** to be used for secure application routes use the following command.  This certicate is always required.  Replace the cluster domain name in the example for that of the actual cluster.
+    **To obtain the CA certificate from the ingress controller** to be used for secure application routes use the following command.  This certificate is always required.  Replace the cluster domain name in the example for that of the actual cluster.
 
         $ echo |openssl s_client -showcerts -connect console-openshift-console.apps.jupiter.example.com:443
         ...
@@ -721,7 +723,7 @@ When the Application Gateway is deployed, the Openshift cluster can be accessed 
 ```
 $ oc login -u kubeadmin https://api.jupiter.example.com:6443
 ```
-* **Access to non secure applications**.- Any non secure application routes created in the Openshift cluster using the _http_ protocol are accessible by default through the Application Gateway.  The only requirement is that the hostname defined in the route can be resolved either by a wildcard DNS entry or by specific DNS records, no additional configuration is required in the Application Gateway.
+* **Access to non secure applications**.- Any non secure application routes created in the Openshift cluster using the _http_ protocol are accessible by default through the Application Gateway.  The only requirement is that the hostname defined in the route can be resolved either by a wildcard DNS entry or by specific DNS records; no additional configuration is required in the Application Gateway.
 
     For example if the wildcard DNS domain is valid for the domain _\*.apps.jupiter.example.com_, the cluster web console can be accessed at _https://console-openshift-console.apps.jupiter.example.com_
 * **Access to secure applications**.- Secure application routes are not accessible by default through the Application Gateway.  To enable access to a secure application route that uses the _https_ protocol, its external FQDN hostname must be included in the list variable __ssl_listener_hostnames__.  
@@ -773,7 +775,7 @@ $ terraform remove -var-file AppGateway_vars
 If at a later time the Application gateway is created again using the same variables file, the resulting configuration should be the same except for the frontend public IP that will probably change.  In that case the DNS records resolving the external domain must be updated to use the new IP address.
 
 ## Configuring DNS resolution with dnsmasq
-Here is how to setup dnsmasq in the client host to resolve the DNS queries for the API and application routes in the Openshift cluster.  The DNS records must resolve to the public IP addressof the Application Gateway, this IP can be found out by running the following command in the directory __Terraform/AppGateway__:
+Here is how to set up dnsmasq in the client host to resolve the DNS queries for the API and application routes in the Openshift cluster.  The DNS records must resolve to the public IP address of the Application Gateway, this IP can be found out by running the following command in the directory __Terraform/AppGateway__:
 ```
 $ terraform output frontend_pub_ip
 "20.97.425.13"
@@ -786,7 +788,7 @@ To define dnsmasq as the default DNS server add a file to __/etc/NetworkManager/
 dns=dnsmasq
 ```
 Create a file in __/etc/NetworkManager/dnsmasq.d/__, again any filename ending in .conf is good.  This file contains the resolution records for the domain in question, the following example file contains two records:
-* A type A record that resolves a single hostname into the IP address of the Application Gatewa
+* A type A record that resolves a single hostname into the IP address of the Application Gateway
 * A wildcard type A record that resolves a whole DNS domain into the IP address of the Application Gateway
 ```
 host-record=api.jupiter.example.com,20.97.425.13
@@ -809,11 +811,11 @@ $ dig +short api.jupiter.example.com
 20.97.425.13
 ```
 ## Obtaining Certificates from Lets Encrypt
-A popular option to get certificates that are accepted by most clients and browsers to Encrypt https services is to get them from [Let's Encrypt](https://letsencrypt.org), a certificatin authority (CA) that issues these certificates free of charge.
+A popular option to get certificates that are accepted by most clients and browsers to Encrypt https services is to get them from [Let's Encrypt](https://letsencrypt.org), a certification authority (CA) that issues these certificates free of charge.
 
 The main prerequisite to be able to obtain let's Encrypt certificates for a public DNS name is to demonstrate control over such domain. Let's Encrypt does not issue certificates for private DNS domains.
 
-In this section an step by step example on how to obtain a let's Encrypt certificate to be used with the Application Gateway will be showwn.
+In this section an step by step example on how to obtain a let's Encrypt certificate to be used with the Application Gateway will be shown.
 
 An ACME client is required to communicate with Let's Encrypt to request and receive the certificate.  Several [clients are available](https://letsencrypt.org/docs/client-options/) in the Let's Encrypt site, for this example the [acme.sh](https://github.com/acmesh-official/acme.sh) shell script client will be used.
 
@@ -928,9 +930,6 @@ To use this method a service principal with permissions to create records in the
 ## TODO
 @#Why is it necessary to specify every single route hostname instead of just using a default wildcard policy like in the case of the non secure applications#@
 
-@#Why non secure application routes (http) are all available instead of using conditional publication like secure routes do?#@
+@#Why are non secure application routes (http) all available instead of using conditional publication like secure routes do?#@
 
 @#Open the bugzilla for the private clusters that need to specify the public DNS resource group#@
-
-@#When the secret associated with the service principal expires, can the OCP cluster still operate and create new resources like an ingress controller or be updated?#@
-
