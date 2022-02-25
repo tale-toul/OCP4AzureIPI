@@ -726,11 +726,11 @@ $ oc login -u kubeadmin https://api.jupiter.example.com:6443
 * **Access to non secure applications**.- Any non secure application routes created in the Openshift cluster using the _http_ protocol are accessible by default through the Application Gateway.  The only requirement is that the hostname defined in the route can be resolved either by a wildcard DNS entry or by specific DNS records; no additional configuration is required in the Application Gateway.
 
     For example if the wildcard DNS domain is valid for the domain _\*.apps.jupiter.example.com_, the cluster web console can be accessed at _https://console-openshift-console.apps.jupiter.example.com_
-* **Access to secure applications**.- Secure application routes are not accessible by default through the Application Gateway.  To enable access to a secure application route that uses the _https_ protocol, its external FQDN hostname must be included in the list variable __ssl_listener_hostnames__.  
+* **Access to secure applications**.- Secure application routes are not accessible by default through the Application Gateway.  To enable access to a secure application route using the _https_ protocol, its external FQDN hostname must be included in the list variable __ssl_listener_hostnames__.  
 
 Some points to highlighting here are:
 
-  * The external domain doesn't need to match the internal one, but the short hostname must.  For example, the name external  __examplessl-dragon.tale.net__ translates to the internal name __examplessl-dragon.apps.jupiter.example.com__. The domains are different _tale.net_ vs _apps.jupiter.example.com_, but the short hostnames match _examplessl-dragon_
+  * The external domain doesn't need to match the internal one, but the short hostname must.  For example, the external name __examplessl-dragon.tale.net__ translates to the internal name __examplessl-dragon.apps.jupiter.example.com__. The domains are different _tale.net_ vs _apps.jupiter.example.com_, but the short hostnames match _examplessl-dragon_
 
   * An application running in the Openshift cluster can be accessed with different external domain names.  The following two entries in the variable ssl_listener_hostnames point to the same application in the cluster but use different external domains:
 
@@ -739,7 +739,7 @@ Some points to highlighting here are:
 
   * The external certificate used by the Application Gateway to encrypt client connections included in the file __apps-cert.pfx__ should be valid for the name used in the external URL, the most common setup is to use a wildcard certificate for the domain.  If the certificate is not valid for the hostname in the URL the application can still be accessed but a the browser will show a warning message about invalid certificate. 
 
-  * The Openshift services like console; prometheus; oauth; grafana, etc. must be accessed using the internal cluster domain, for example if the cluster domain is _apps.jupiter.example.com_ the FQDN for the console defined in the ssl_listener_hostnames variable must be _console-openshift-console.apps.jupiter.example.com_.  If an external domain is defined for these services they will not work or will switch to the internal domain at some point during service load.
+  * Openshift services like the console; prometheus; oauth; grafana, etc. must be accessed using the internal cluster domain, for example if the cluster domain is _apps.jupiter.example.com_ the FQDN for the console defined in the ssl_listener_hostnames variable must be _console-openshift-console.apps.jupiter.example.com_.  If an external domain is defined for these services they will not work or will switch to the internal domain at some point during service load.
 
 To be able to connect to these URLs and to the cluster in general, the DNS configuration in the client must be able to resolve the names _api.jupiter.example.com_ and any hostname associated with an application route in the domain _\*.apps.jupiter.example.com_.  
 
