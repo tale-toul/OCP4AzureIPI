@@ -160,7 +160,7 @@ The __outboundType__ variable can only take two possible values: LoadBalancer an
 
 When using _UserDefinedRouting_ in a private cluster, a load balancer is still created but contains no frontend IP address, load balancing rules or outbound rules, so it serves no purpose.  A fully functional internal load balancer is always created for access to the API service and applications only from inside the VNet.
 
-In this repository the terraform variable **outbound_type** is used to select the type of outbound traffic configuration, for more details see [Variables definition](#variables-definition-for-terraform)
+In this repository the terraform variable **outbound_type** is used to select the type of outbound traffic configuration, for more details see [Variables Definition for Terraform](#variables-definition-for-terraform)
 
 ## Cluster Deployment Instructions
 
@@ -218,7 +218,7 @@ $ az login
 ```  
 Once successfully logged in, the file __~/.azure/azureProfile.json__ is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  These credentials are valid for the following days so no further authentication with Azure is required for a while.
 
-#### Variables definition
+#### Variables definition for Terraform
 Some of the resources created by terraform can be adjusted via the use of variables.  These variables can be defined in the command line or in a file:
 * **cluster_name**.- A unique name for the Openshift cluster.  
 
@@ -455,7 +455,7 @@ There are many options to make the applications and API endpoint publicly availa
 
 To successfully deploy the Application Gateway using the terraform template in this repository, the Azure infrastructure must also be deployed using the terraform templates in this repository, and the Openshift cluster must be already running.
 
-### Variables Definition
+### Variables Definition for Terraform
 The following variables are used to pass information to terraform so the Application Gateway can be created and set up.  Add the variables definition to a file in the __Terraform/AppGateway__ directory, for example **AppGateway_vars**, and later call it in with the option `-var-file AppGateway_vars`.
 
 * **publish_api**.- This boolean variable determines if the API entry point is to be published or not.  
@@ -522,7 +522,7 @@ cluster_domain = "jupiter.example.com"
 ```
 
 #### Obtaining the Load Balancers IP addresses
-The variables *api_lb_ip* and *apps_lb_ip* described in [Variables Definition](#variables-definition-for-ansible) can be obtained from the Azure portal or using the following commands:
+The variables *api_lb_ip* and *apps_lb_ip* described in [Variables Definition for Ansible](#variables-definition-for-ansible) can be obtained from the Azure portal or using the following commands:
 
 * Get the list of load balancers in the resource group created by the IPI installer.  The LB with _internal_ in its name is the one of interest here, the other LB is not even functional in a private cluster:
 ```
@@ -551,7 +551,7 @@ The commands explained in this section must be run in the directory __Terraform/
 
 Follow the next steps to create the Application Gateway:
 
-* Create a file to hold the variables detailed in the [Variables Definition](#variables-definitionfor-ansible) section, for example *AppGateway_varsf*.
+* Create a file to hold the variables detailed in the [Variables Definition for Ansible](#variables-definitionfor-ansible) section, for example *AppGateway_varsf*.
 
 * Choose whether the API endpoint will be made public or not by assigning _true_ or _false_ to the variable **publish_api**, _false_ being the default value.
 
@@ -561,7 +561,7 @@ Follow the next steps to create the Application Gateway:
 
 * Obtain the IP addresses to assign to **apps_lb_ip**, and to **api_lb_api** if required, instructions on how to get this information can be found in the section [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses).
 
-* Define the variable **ssl_listener_hostnames** with a list of external FQDNs hostnames defining the secure application routes to be published using the _https_ protocol, as described in the section [Variables Definition](#variables-definition-for-ansible) 
+* Define the variable **ssl_listener_hostnames** with a list of external FQDNs hostnames defining the secure application routes to be published using the _https_ protocol, as described in the section [Variables Definition for Ansible](#variables-definition-for-ansible) 
 
     If additional secure routes are required at a later time, just add new entries to the list and rerun the AppGateway terraform module.
 
