@@ -10,7 +10,7 @@
 * [Create the infrastructure with Terraform](#create-the-infrastructure-with-terraform)
   * [Terraform initialization](#terraform-initialization)
   * [Login into Azure](#login-into-azure)
-  * [Variables definition](#variables-definition)
+  * [Variables Definition for Terraform](#variables-definition-for-terraform)
   * [SSH key](#ssh-key)
   * [Deploy the infrastructure with Terraform](#deploy-the-infrastructure-with-terraform)
 * [Bastion infrastructure](#bastion-infrastructure)
@@ -21,7 +21,7 @@
   * [Accessing the Bootstrap Node](#accessing-the-bootstrap-node)
 * [Cluster Decommission Instructions](#cluster-decommission-instructions)
 * [Accessing a Private OpenShift Cluster from The Internet](#accessing-a-private-openshift-cluster-from-the-internet)
-  * [Variables Definition](#variables-definition)
+  * [Variables Definition for Ansible](#variables-definition-for-ansible)
     * [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses)
   * [Application Gateway Deployment](#application-gateway-deployment)
     * [Obtaining the Certificates for API and Application Secure Routes](#obtaining-the-certificates-for-api-and-application-secure-routes)
@@ -160,7 +160,7 @@ The __outboundType__ variable can only take two possible values: LoadBalancer an
 
 When using _UserDefinedRouting_ in a private cluster, a load balancer is still created but contains no frontend IP address, load balancing rules or outbound rules, so it serves no purpose.  A fully functional internal load balancer is always created for access to the API service and applications only from inside the VNet.
 
-In this repository the terraform variable **outbound_type** is used to select the type of outbound traffic configuration, for more details see [Variables definition](#variables-definition)
+In this repository the terraform variable **outbound_type** is used to select the type of outbound traffic configuration, for more details see [Variables definition](#variables-definition-for-terraform)
 
 ## Cluster Deployment Instructions
 
@@ -522,7 +522,7 @@ cluster_domain = "jupiter.example.com"
 ```
 
 #### Obtaining the Load Balancers IP addresses
-The variables *api_lb_ip* and *apps_lb_ip* described in [Variables Definition](#variables-definition) can be obtained from the Azure portal or using the following commands:
+The variables *api_lb_ip* and *apps_lb_ip* described in [Variables Definition](#variables-definition-for-ansible) can be obtained from the Azure portal or using the following commands:
 
 * Get the list of load balancers in the resource group created by the IPI installer.  The LB with _internal_ in its name is the one of interest here, the other LB is not even functional in a private cluster:
 ```
@@ -551,7 +551,7 @@ The commands explained in this section must be run in the directory __Terraform/
 
 Follow the next steps to create the Application Gateway:
 
-* Create a file to hold the variables detailed in the [Variables Definition](#variables-definition) section, for example *AppGateway_varsf*.
+* Create a file to hold the variables detailed in the [Variables Definition](#variables-definitionfor-ansible) section, for example *AppGateway_varsf*.
 
 * Choose whether the API endpoint will be made public or not by assigning _true_ or _false_ to the variable **publish_api**, _false_ being the default value.
 
@@ -561,7 +561,7 @@ Follow the next steps to create the Application Gateway:
 
 * Obtain the IP addresses to assign to **apps_lb_ip**, and to **api_lb_api** if required, instructions on how to get this information can be found in the section [Obtaining the Load Balancers IP addresses](#obtaining-the-load-balancers-ip-addresses).
 
-* Define the variable **ssl_listener_hostnames** with a list of external FQDNs hostnames defining the secure application routes to be published using the _https_ protocol, as described in the section [Variables Definition](#variables-definition) 
+* Define the variable **ssl_listener_hostnames** with a list of external FQDNs hostnames defining the secure application routes to be published using the _https_ protocol, as described in the section [Variables Definition](#variables-definition-for-ansible) 
 
     If additional secure routes are required at a later time, just add new entries to the list and rerun the AppGateway terraform module.
 
@@ -615,11 +615,11 @@ To establish the encrypted end to end connections for API and secure routes two 
 
     The Application Gateway terminates the TLS connections so it needs a full certificate, containing the private and public keys.  
 
-    This certificate can be obtained from a well known certification authority or generated internally.  This instructions show how to obtain these certificates by extracting them from the API endpoint and the default ingress controller, but a new certificate created by a CA is also, see [Obtaining Certificates from Let's Encrypt](#obtaining-certificates-from-lets-encrypt) to see an example on how to obtain these certificates from a well known Certification Authority.
+    This certificate can be obtained from a well known certification authority or generated internally.  This instructions show how to extract the certificates from the Openshift cluster API endpoint and the default ingress controller.  A new certificate created by a CA is also valid, see [Obtaining Certificates from Let's Encrypt](#obtaining-certificates-from-lets-encrypt) for an example on how to obtain these certificates from a well known Certification Authority.
 
     The certificate used to access application secure routes should be valid for the DNS domain of the applications, but the external and internal domains don't need to be the same, for example the external hostname of an application could be _app1.example.com_ and its internal name _app1.apps.ocp4.jupiter.net_, this provides a layer of abstraction that can hide the complexities of the OCP cluster behind the application gateway and can simplify the migration of applications from one cluster to another.  
 
-    This repository only supports wildcard certificates, covering any application in the DNS domain for which the certificate is valid.  A wildcard certificate contains a CN field and possibly a SAN field like in the following example:
+    This repository only supports wildcard certificates for applications in the DNS domain for which the certificate is valid.  A wildcard certificate contains a CN field and possibly a SAN field like in the following example:
 
         Subject: CN = *.apps.jupiter.example.com
         ...
@@ -719,7 +719,7 @@ The terraform template expects to find the CA cert for the API endpoint, if requ
 ### Accessing the Openshift Cluster through the Application Gateway
 When the Application Gateway is deployed, the Openshift cluster can be accessed using the external DNS names assigned to the different entry points.  Three different access points can be considered here:
 
-* **Access to the API endpoint**.- This can only be accessed from the Internet if it was made public by assigning the value _true_ to the variable [publish_api](#variables-definition).  If for example its DNS name is _api.jupiter.example.com_, the command to log into the cluster as the kubeadmin user would be:
+* **Access to the API endpoint**.- This can only be accessed from the Internet if it was made public by assigning the value _true_ to the variable [publish_api](#variables-definition-for-ansible).  If for example its DNS name is _api.jupiter.example.com_, the command to log into the cluster as the kubeadmin user would be:
 ```
 $ oc login -u kubeadmin https://api.jupiter.example.com:6443
 ```
