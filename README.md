@@ -218,7 +218,7 @@ $ az login
 ```  
 Once successfully logged in, the file __~/.azure/azureProfile.json__ is created containing credentials that are used by the az CLI and terraform to run commands in Azure.  These credentials are valid for the following days so no further authentication with Azure is required for a while.
 
-#### Variables definition for Terraform
+#### Variables Definition for Terraform
 Some of the resources created by terraform can be adjusted via the use of variables.  These variables can be defined in the command line or in a file:
 * **cluster_name**.- A unique name for the Openshift cluster.  
 
@@ -455,7 +455,7 @@ There are many options to make the applications and API endpoint publicly availa
 
 To successfully deploy the Application Gateway using the terraform template in this repository, the Azure infrastructure must also be deployed using the terraform templates in this repository, and the Openshift cluster must be already running.
 
-### Variables Definition for Terraform
+### Variables Definitions for Ansible
 The following variables are used to pass information to terraform so the Application Gateway can be created and set up.  Add the variables definition to a file in the __Terraform/AppGateway__ directory, for example **AppGateway_vars**, and later call it in with the option `-var-file AppGateway_vars`.
 
 * **publish_api**.- This boolean variable determines if the API entry point is to be published or not.  
