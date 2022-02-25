@@ -455,7 +455,7 @@ There are many options to make the applications and API endpoint publicly availa
 
 To successfully deploy the Application Gateway using the terraform template in this repository, the Azure infrastructure must also be deployed using the terraform templates in this repository, and the Openshift cluster must be already running.
 
-### Variables Definitions for Ansible
+### Variables Definition for Ansible
 The following variables are used to pass information to terraform so the Application Gateway can be created and set up.  Add the variables definition to a file in the __Terraform/AppGateway__ directory, for example **AppGateway_vars**, and later call it in with the option `-var-file AppGateway_vars`.
 
 * **publish_api**.- This boolean variable determines if the API entry point is to be published or not.  
