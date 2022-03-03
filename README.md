@@ -607,7 +607,7 @@ The deployment will take a few minutes, but it could take a little longer to be 
 
 To access the cluster check the section [Accessing the Openshift Cluster through the Application Gateway](#accessing-the-openshift-cluster-through-the-application-gateway).
 
-#### Obtaining the Certificate for API and Application Secure Routes
+#### Obtaining the Certificates for API and Application Secure Routes
 Connections to the API and the secure application routes are encrypted end to end, from the client to the Openshift cluster.  The Application Gateway terminates all TLS connections and establishes new ones with the OCP cluster.  
 
 To establish the encrypted end to end connections for API and secure routes two certificates are required:
