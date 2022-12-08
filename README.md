@@ -115,7 +115,7 @@ These instructions use the [az] (https://docs.microsoft.com/es-es/cli/azure/inst
           "appId": "2bbe757d-a3f4-45eb-8a83-52e3c67e6ac7",
           "displayName": "ocp49-installer",
           "name": "2bbe757d-a3f4-45eb-8a83-52e3c67e6ac7",
-          "password": "sxrw.jIBc~4qigF0Yn84Vkj7~PhN0_LCHa",
+          "password": "sxrw.jIBc~4qigF0Yn84Vkj7~PhN0_LCHa",  # gitleaks:allow
           "tenant": "46dc81a2-d083-ff32-3801-abacc1dd1408"
         }
 
@@ -912,7 +912,7 @@ To use this method a service principal with permissions to create records in the
           "appId": "3b5033b5-7a66-43a5-b3b9-a36b9e7c25ed",
           "displayName": "AcmeDnsValidator",
           "name": "http://AcmeDnsValidator",
-          "password": "1b0224ef-34d4-5af9-110f-77f527d561bd",
+          "password": "1b0224ef-34d4-5af9-110f-77f527d561bd",  # gitleaks:allow
           "tenant": "11111111-2222-3333-4444-555555555555"
         }
 
