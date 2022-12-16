@@ -11,3 +11,4 @@ Ansible/inventory
 *.pfx
 *.cer
 Terraform/terraform_apply.txt
+Terraform/infra_vars

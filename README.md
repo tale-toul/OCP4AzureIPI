@@ -367,23 +367,21 @@ base_domain_resource_group: waawk-dns
 ```
 compute_replicas: 3
 ```
+* **ocp_version**.- Openshift version to be deployed.  Available versions can be found [here](https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/)
+```
+ocp_version: 4.9.5
+```
 The resulting file will look like:
 ```
 base_domain: example.com
 base_domain_resource_group: waawk-dns
 compute_replicas: 3
+ocp_version: 4.9.5
 ```
-Download the Pull secret, Openshift installer and oc CLI from [here](https://cloud.redhat.com/openshift/install): In section __Run it yourself__, select **Azure (x86_64)** as the cloud provider, then **Installer-provisioned infrastructure**. Download the installer and command line tools for the required operating system. Download the pull secret as a file.
+Download the Pull secret as a file from [here](https://cloud.redhat.com/openshift/install): In section __Run it yourself__, select **Azure (x86_64)** as the cloud provider, then **Installer-provisioned infrastructure**.
 
-The link above contains the latest version of the Openshift components, for earlier versions use [this link](https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/) and click on the desired version. The pull secret must still be obtained from the first link.
-
-Uncompress the installer and oc cli, copy the executable files **oc** and **openshift-install** along with the pull secret in a file called **pull-secret** to the directory __Ansible/ocp_files/__
-
-Keep in mind that this README.md file will be overwritten if the the tar files are uncompressed in the OCP4AzureIPI directory. This can be recovered using the git restore command 
+Save the pull secret in a file called **pull-secret** to the directory __Ansible/ocp_files/__
 ```
-tar xvf openshift-client-linux.tar.gz
-tar xvf openshift-install-linux.tar.g
-cp oc openshift-install Ansible/ocp_files/
 cp pull-secret.txt Ansible/ocp_files/pull-secret
 git restore README.md
 ```
@@ -406,11 +404,13 @@ $ terraform output bastion_public_ip
 20.43.63.15
 $ ssh -i ~/.ssh/ocp_install azureuser@20.43.63.15
 ```
-The Openshift installer, oc cli and a directory with the cluster name should be found in the _OCP4_ directory:
+The Openshift installer and oc cli are in __/usr/local/bin__.  A directory with the cluster name should be found inside the _OCP4_ directory:
 ```shell
+$ ls /usr/local/bin
+README.md  kubectl  oc  openshift-install
 $ cd OCP4
 $ ls -F
-jupiter/  oc  openshift-install
+jupiter/
 ```
 The directory contains the configuration file __install-config.yaml__, review and modify the file as required.
 
@@ -429,7 +429,7 @@ When the Openshift installer is execute, it requests the following information:
 
 After providing the values, the installer starts creating the cluster components:
 ```
-$ ./openshift-install create cluster --dir jupiter
+$ openshift-install create cluster --dir jupiter
 ? azure subscription id 9cf87ea-3bf1-4b1a-8cc3-2aabe4cc8b98
 ? azure tenant id 6d4c6af4-d80b-4f9a-b169-4b4ec1aa1480
 ? azure service principal client id 0c957bc0-fbf9-fa60-6a5e-38a8bcc2e919

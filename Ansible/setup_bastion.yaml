@@ -21,6 +21,10 @@
         insertafter: "[bastion]"
     - name: Reload inventory
       meta: refresh_inventory
+    - name: Validate cluster_scope variable
+      assert:
+        that: cluster_scope is match('^(public|private)$')
+        msg: "cluster_scope must be defined as public or private"
 - name: Setup bastion host
   hosts: bastion
   gather_facts: no
@@ -33,17 +37,17 @@
         state: latest
         name:
           - tmux
-    - name: Copy the installer to bastion
-      copy:
-        src: ocp_files/openshift-install
-        dest: OCP4/
-        owner: azureuser
+    - name: Download oc client file to the bastion
+      unarchive:
+        src: https://mirror.openshift.com/pub/openshift-v4/clients/ocp/{{ ocp_version }}/openshift-client-linux.tar.gz
+        dest: /usr/local/bin
+        remote_src: yes
         mode: '0755'
-    - name: Copy the oc command to bastion
-      copy:
-        src: ocp_files/oc
-        dest: OCP4/
-        owner: azureuser
+    - name: Download openshift-installer to the bastion
+      unarchive:
+        src: https://mirror.openshift.com/pub/openshift-v4/clients/ocp/{{ ocp_version }}/openshift-install-linux.tar.gz
+        dest: /usr/local/bin
+        remote_src: yes
         mode: '0755'
     - name: Create {{ cluster_name }} directory
       file:
