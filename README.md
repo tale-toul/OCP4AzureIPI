@@ -37,7 +37,10 @@ The instructions and code in this repository show how to create the basic Azure 
 
 The Openshift cluster deployed using this repository can be public or private:
 * A [public](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-vnet.html) cluster is fully accessible from the Internet.  
+![Public Openshift Cluster](images/PublicCluster.png "Public Openshift Cluster")
+
 * A [private.](https://docs.openshift.com/container-platform/4.9/installing/installing_azure/installing-azure-private.html) cluster is only accessible from the same VNet where it is created unless additional configurations are put in place to allow clients to connect from other VNets or from the Internet.  This repository provides an [example of such configuration](#accessing-a-private-openshift-cluster-from-the-internet) using an [Azure Application Gateway](#https://docs.microsoft.com/en-us/azure/application-gateway/overview) to make the private cluster or parts of it public.  A private cluster must be installed from a bastion host connected to the same VNet where the cluster is created, so the installer can resolve the DNS records served by the private DNS zone.
+![Private Openshift Cluster](images/PrivateCluster.png "Private Openshift Cluster")
 
     Some of the reasons to create a private cluster and then make it public instead of install it as a public cluster from the start are:
 
