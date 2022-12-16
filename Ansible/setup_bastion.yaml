@@ -32,6 +32,19 @@
     - name: Load terraform output variables
       include_vars:
         file: group_vars/all/terraform_outputs.var
+    - name: Get /home LV size
+      shell:
+        lvs --noheadings --units m -o lv_size /dev/rootvg/homelv|cut -d. -f1
+      register: _lvhome_size
+      changed_when: false
+    - name: Extend /home logical volume
+      lvol:
+        vg: rootvg
+        lv: homelv
+        size: +1024m
+        resizefs: true
+      ignore_errors: true
+      when: _lvhome_size.stdout | int < 2548
     - name: Install required packages
       yum:
         state: latest
